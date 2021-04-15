@@ -2,12 +2,87 @@ module Normalize
 
 using CSV, DataFrames, SciPy, ExcelFiles
 
+export  add_label,
+        add_then_invert,
+        add_then_log_base_10,
+        add_then_logit,
+        add_then_natural_log,
+        add_then_square_root,
+        add_then_square_root_then_invert,
+        add_then_square_then_invert,
+        antilog,
+        apply_transformation,
+        are_negative_skew,
+        are_nonnormal,
+        are_normal,
+        are_positive_skew,
+        blank_to_nan!,
+        calculate_kurtosis,
+        calculate_kurtosis_error,
+        calculate_kurtosis_stat,
+        calculate_kurtosis_variance,
+        calculate_ratio,
+        calculate_skewness,
+        calculate_skewness_error,
+        calculate_skewness_stat,
+        calculate_skewness_variance,
+        contains_invalid_for_add_then_logit,
+        contains_invalid_for_logit,
+        contains_predicated,
+        contains_skew,
+        cube,
+        get_applied_transformations,
+        get_error_negative_skew_transformations,
+        get_error_positive_skew_transformations,
+        get_extremum,
+        get_filtered_cols,
+        get_original_colnames,
+        get_positive_skew_transformations,
+        invert,
+        is_invalid_for_add_then_logit,
+        is_invalid_for_logit,
+        is_negative_skew,
+        is_normal,
+        is_positive_skew,
+        label_findings,
+        locate_end_of_original_colname,
+        log_base_10,
+        logit,
+        make_legible,
+        make_list_phrase,
+        make_phrase,
+        merge_cols!,
+        merge_results!,
+        natural_log,
+        normalize,
+        print_findings,
+        print_skewness_kurtosis,
+        print_summary,
+        record_all_transformations,
+        record_transformations,
+        reflect_then_invert,
+        reflect_then_log_base_10,
+        reflect_then_square_root,
+        rename_with_function,
+        square,
+        square_root,
+        square_root_then_add_then_invert,
+        square_root_then_invert,
+        square_then_invert,
+        stretch_skew,
+        string_to_float!,
+        tabular_to_dataframe,
+        transform_negative_skew,
+        transform_positive_skew,
+        update_normal!
+
 """
-    loadSpreadsheet(path::AbstractString) -> AbstractDataFrame
+    tabular_to_dataframe(path::AbstractString,
+                         sheet::AbstractString="") -> AbstractDataFrame
 
 
 """
-function loadSpreadsheet(path::AbstractString, sheet::AbstractString="")
+function tabular_to_dataframe(path::AbstractString, sheet::AbstractString="")
     if endswith(path, ".csv")
         CSV.read(path, DataFrame)
     elseif endswith(path, ".xlsx")
@@ -24,16 +99,16 @@ end
 """
 function normalize(df::AbstractDataFrame, normal_ratio::Real=2)
     try
-        skews = calculateSkewness.(eachcol(df))
-        kurts = calculateKurtosis.(eachcol(df))
+        skews = calculate_skewness.(eachcol(df))
+        kurts = calculate_kurtosis.(eachcol(df))
         normal = []
-        if areNonnormal(skews, kurts, normal_ratio)
-            if arePositiveSkew(skews)
-                push!(normal, transformPositiveSkew(df, normal_ratio))
-            elseif areNegativeSkew(skews)
-                push!(normal, transformNegativeSkew(df, normal_ratio))
+        if are_nonnormal(skews, kurts, normal_ratio)
+            if are_positive_skew(skews)
+                push!(normal, transform_positive_skew(df, normal_ratio))
+            elseif are_negative_skew(skews)
+                push!(normal, transform_negative_skew(df, normal_ratio))
             end
-            push!(normal, stretchSkew(df, normal_ratio))
+            push!(normal, stretch_skew(df, normal_ratio))
         end
         normal
     catch e
@@ -42,16 +117,16 @@ function normalize(df::AbstractDataFrame, normal_ratio::Real=2)
 end
 
 """
-    calculateSkewness(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
-                      nan_rule::AbstractString="omit") -> NamedTuple
+    calculate_skewness(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
+                       nan_rule::AbstractString="omit") -> NamedTuple
 
 
 """
-function calculateSkewness(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
-                           nan_rule::AbstractString="omit")
-    stat = calculateSkewnessStat(col, round_to, biased, nan_rule)
-    error = calculateSkewnessError(col, round_to)
-    ratio = calculateRatio(stat, error, round_to)
+function calculate_skewness(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
+                            nan_rule::AbstractString="omit")
+    stat = calculate_skewness_stat(col, round_to, biased, nan_rule)
+    error = calculate_skewness_error(col, round_to)
+    ratio = calculate_ratio(stat, error, round_to)
     (
         skewness_stat = stat,
         skewness_error = error,
@@ -60,13 +135,12 @@ function calculateSkewness(col::AbstractVector, round_to::Integer=3, biased::Boo
 end
 
 """
-    calculateSkewnessStat(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
-                          nan_rule::AbstractString="omit")
+    calculate_skewness_stat(col, round_to=3, biased=false, nan_rule="omit")
 
 
 """
-function calculateSkewnessStat(col::AbstractVector, round_to::Integer=3,
-                               biased::Bool=false, nan_rule::AbstractString="omit")
+function calculate_skewness_stat(col::AbstractVector, round_to::Integer=3,
+                                 biased::Bool=false, nan_rule::AbstractString="omit")
     if any(isnan.(col))
         round(SciPy.stats.skew(col, bias=biased, nan_policy=nan_rule)[1], digits=round_to)
     else
@@ -75,17 +149,17 @@ function calculateSkewnessStat(col::AbstractVector, round_to::Integer=3,
 end
 
 """
-    calculateSkewnessError(col::AbstractVector, round_to::Integer=3)
+    calculate_skewness_error(col::AbstractVector, round_to::Integer=3)
 
 Compute skewness error of `col`, rounded to `round_to` digits.
 """
-function calculateSkewnessError(col::AbstractVector, round_to::Integer=3)
-    variance = calculateSkewnessVariance(col)
+function calculate_skewness_error(col::AbstractVector, round_to::Integer=3)
+    variance = calculate_skewness_variance(col)
     round(√variance, digits=round_to)
 end
 
 """
-    calculateSkewnessVariance(col::AbstractVector)
+    calculate_skewness_variance(col::AbstractVector)
 
 Compute the skewness variance of `col`.
 
@@ -93,32 +167,32 @@ It is calculated from the formula:
 
 ``\\frac{6N(N-1)}{(N-2)(N+1)(N+3)}``
 """
-function calculateSkewnessVariance(col::AbstractVector)
+function calculate_skewness_variance(col::AbstractVector)
     omission = count(isnan.(col))
     N = length(col) - omission
     6 * N * (N - 1) * invert((N - 2) * (N + 1) * (N + 3))
 end
 
 """
-    calculateRatio(statistic::Real, std_error::Real, round_to::Integer=3)
+    calculate_ratio(statistic::Real, std_error::Real, round_to::Integer=3)
 
 Compute the ratio of `statistic` and `std_error`, rounded to `round_to` digits.
 """
-function calculateRatio(statistic::Real, std_error::Real, round_to::Integer=3)
+function calculate_ratio(statistic::Real, std_error::Real, round_to::Integer=3)
    round(statistic * invert(std_error), digits=round_to)
 end
 
 """
-    calculateKurtosis(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
-                      nan_rule::AbstractString="omit") -> NamedTuple
+    calculate_kurtosis(col::AbstractVector, round_to::Integer=3, biased::Bool=false, 
+                       nan_rule::AbstractString="omit") -> NamedTuple
 
 
 """
-function calculateKurtosis(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
-                           nan_rule::AbstractString="omit")
-    stat = calculateKurtosisStat(col, round_to, biased, nan_rule)
-    error = calculateKurtosisError(col, round_to)
-    ratio = calculateRatio(stat, error, round_to)
+function calculate_kurtosis(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
+                            nan_rule::AbstractString="omit")
+    stat = calculate_kurtosis_stat(col, round_to, biased, nan_rule)
+    error = calculate_kurtosis_error(col, round_to)
+    ratio = calculate_ratio(stat, error, round_to)
     (
         kurtosis_stat = stat,
         kurtosis_error = error,
@@ -127,13 +201,13 @@ function calculateKurtosis(col::AbstractVector, round_to::Integer=3, biased::Boo
 end
 
 """
-    calculateKurtosisStat(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
-                          nan_rule::AbstractString="omit")
+    calculate_kurtosis_stat(col::AbstractVector, round_to::Integer=3, biased::Bool=false,
+                            nan_rule::AbstractString="omit")
 
 
 """
-function calculateKurtosisStat(col::AbstractVector, round_to::Integer=3,
-                               biased::Bool=false, nan_rule::AbstractString="omit")
+function calculate_kurtosis_stat(col::AbstractVector, round_to::Integer=3,
+                                 biased::Bool=false, nan_rule::AbstractString="omit")
     if any(isnan.(col))
         round(SciPy.stats.kurtosis(col, bias=biased, nan_policy=nan_rule)[1], 
               digits=round_to)
@@ -144,17 +218,17 @@ function calculateKurtosisStat(col::AbstractVector, round_to::Integer=3,
 end
 
 """
-    calculateKurtosisError(col::AbstractVector, round_to::Integer=3)
+    calculate_kurtosis_error(col::AbstractVector, round_to::Integer=3)
 
 Compute the kurtosis error of `col`, rounded to `round_to` digits.
 """
-function calculateKurtosisError(col::AbstractVector, round_to::Integer=3)
-    variance = calculateKurtosisVariance(col)
+function calculate_kurtosis_error(col::AbstractVector, round_to::Integer=3)
+    variance = calculate_kurtosis_variance(col)
     round(√variance, digits=round_to)
 end
 
 """
-    calculateKurtosisVariance(col::AbstractVector)
+    calculate_kurtosis_variance(col::AbstractVector)
 
 Compute the kurtosis variance of `col`.
 
@@ -162,65 +236,65 @@ It is calculated from the formula:
 
 ``\\frac{}{(N-3)(N+5)}``
 """
-function calculateKurtosisVariance(col::AbstractVector)
+function calculate_kurtosis_variance(col::AbstractVector)
     omission = count(isnan.(col))
     N = length(col) - omission
-    skewness_variance = calculateSkewnessVariance(col)
+    skewness_variance = calculate_skewness_variance(col)
     4 * (N^2 - 1) * skewness_variance * invert((N - 3) * (N + 5))
 end
 
 """
-    areNonnormal(skewnesses::AbstractVector, kurtoses::AbstractVector,
-                 normal_ratio::Real=2) -> Bool
+    are_nonnormal(skewnesses::AbstractVector, kurtoses::AbstractVector,
+                  normal_ratio::Real=2) -> Bool
 
 Return `true` if ratios in `skewnesses` and `kurtoses` are not within the range of
 ±`normal_ratio`, and false otherwise.
 """
-function areNonnormal(skewnesses::AbstractVector, kurtoses::AbstractVector,
-                      normal_ratio::Real=2)
-    !areNormal(skewnesses, kurtoses, normal_ratio)
+function are_nonnormal(skewnesses::AbstractVector, kurtoses::AbstractVector,
+                       normal_ratio::Real=2)
+    !are_normal(skewnesses, kurtoses, normal_ratio)
 end
 
 """
-    areNormal(skewnesses::AbstractVector, kurtoses::AbstractVector;
-              normal_ratio::Real=2) -> Bool
+    are_normal(skewnesses::AbstractVector, kurtoses::AbstractVector;
+               normal_ratio::Real=2) -> Bool
 
 Return `true` if items in `skewnesses` and `kurtoses` are normal, and `false` otherwise.
 """
-function areNormal(skewnesses::AbstractVector, kurtoses::AbstractVector,
-                   normal_ratio::Real=2)
+function are_normal(skewnesses::AbstractVector, kurtoses::AbstractVector,
+                    normal_ratio::Real=2)
     combined = merge.(skewnesses, kurtoses)
-    normals = [isNormal(var.skewness_ratio, var.kurtosis_ratio, normal_ratio=normal_ratio)
+    normals = [is_normal(var.skewness_ratio, var.kurtosis_ratio, normal_ratio=normal_ratio)
                for var in combined]
     all(normals)
 end
 
 """
-    isNormal(skewness_ratio::Real, kurtosis_ratio::Real, normal_ratio::Real=2) -> Bool
+    is_normal(skewness_ratio::Real, kurtosis_ratio::Real, normal_ratio::Real=2) -> Bool
 
 Return `true` if `skewness_ratio` and `kurtosis_ratio` are within the range of
 ±`normal_ratio`, and false otherwise.
 """
-function isNormal(skewness_ratio::Real, kurtosis_ratio::Real; normal_ratio::Real=2)
+function is_normal(skewness_ratio::Real, kurtosis_ratio::Real; normal_ratio::Real=2)
     (-normal_ratio ≤ skewness_ratio ≤ normal_ratio) &&
     (-normal_ratio ≤ kurtosis_ratio ≤ normal_ratio)
 end
 
 """
-    arePositiveSkew(skewnesses::AbstractVector) -> Bool
+    are_positive_skew(skewnesses::AbstractVector) -> Bool
 
 Return `true` if `skewnesses` contains any positive ratios, and `false` otherwise.
 """
-function arePositiveSkew(skewnesses::AbstractVector)
-    containsSkew(isPositiveSkew, skewnesses)
+function are_positive_skew(skewnesses::AbstractVector)
+    contains_skew(is_positive_skew, skewnesses)
 end
 
 """
-    containsSkew(f::Function, skewnesses::AbstractVector) -> Bool
+    contains_skew(f::Function, skewnesses::AbstractVector) -> Bool
 
 
 """
-function containsSkew(f::Function, skewnesses::AbstractVector)
+function contains_skew(f::Function, skewnesses::AbstractVector)
     ratios = [var.skewness_ratio
               for var in skewnesses]
     skews = f.(ratios)
@@ -228,104 +302,104 @@ function containsSkew(f::Function, skewnesses::AbstractVector)
 end
 
 """
-    isPositiveSkew(skewness_ratio::Real) -> Bool
+    is_positive_skew(skewness_ratio::Real) -> Bool
 
 Return `true` if `skewness_ratio` is positive, and `false` otherwise.
 """
-function isPositiveSkew(skewness_ratio::Real)
+function is_positive_skew(skewness_ratio::Real)
     skewness_ratio > 0
 end
 
 """
-    transformPositiveSkew(df::AbstractDataFrame, normal_ratio::Real=2) -> AbstractDict
+    transform_positive_skew(df::AbstractDataFrame, normal_ratio::Real=2) -> AbstractDict
 
 Apply positive skew transformations to `df`, and return
 """
-function transformPositiveSkew(df::AbstractDataFrame, normal_ratio::Real=2)
+function transform_positive_skew(df::AbstractDataFrame, normal_ratio::Real=2)
     try
-        smallest = getExtremum(minimum, df)
-        positive_transformations = getPositiveSkewTransformations(smallest)
-        recordAllTransformations(df, 
-                                 positive_transformations, 
-                                 smallest, 
-                                 normal_ratio=normal_ratio)
+        smallest = get_extremum(minimum, df)
+        positive_transformations = get_positive_skew_transformations(smallest)
+        record_all_transformations(df, 
+                                   positive_transformations, 
+                                   smallest, 
+                                   normal_ratio=normal_ratio)
     catch e
-        smallest = getExtremum(minimum, df)
-        positive_transformations = getErrorPositiveSkewTransformations(e, smallest)
-        recordAllTransformations(df, 
-                                 positive_transformations, 
-                                 smallest, 
-                                 normal_ratio=normal_ratio)
+        smallest = get_extremum(minimum, df)
+        positive_transformations = get_error_positive_skew_transformations(e, smallest)
+        record_all_transformations(df, 
+                                   positive_transformations, 
+                                   smallest, 
+                                   normal_ratio=normal_ratio)
     end
 end
 
 """
-    getExtremum(f::Function, df::AbstractDataFrame)
+    get_extremum(f::Function, df::AbstractDataFrame)
 
 
 """
-function getExtremum(f::Function, df::AbstractDataFrame)
-    filtered_cols = getFilteredCols(isfinite, df)
+function get_extremum(f::Function, df::AbstractDataFrame)
+    filtered_cols = get_filtered_cols(isfinite, df)
     col_with_extremum = f.(filtered_cols)
     f(col_with_extremum)
 end
 
 """
-    getFilteredCols(f::Function,
-                    df::AbstractDataFrame[, f_second_arg::Real]) -> AbstractVector
+    get_filtered_cols(f::Function,
+                      df::AbstractDataFrame[, f_second_arg::Real]) -> AbstractVector
 
 
 """
-function getFilteredCols(f::Function, df::AbstractDataFrame)
+function get_filtered_cols(f::Function, df::AbstractDataFrame)
     [df[(f.(df[!, name])), name]
      for name in names(df)]
 end
 
-function getFilteredCols(f::Function, df::AbstractDataFrame, f_second_arg::Real)
+function get_filtered_cols(f::Function, df::AbstractDataFrame, f_second_arg::Real)
     [df[(f.(df[!, name], f_second_arg)), name]
      for name in names(df)]
 end
 
 """
-    getPositiveSkewTransformations(min::Real) -> AbstractDict
+    get_positive_skew_transformations(min::Real) -> AbstractDict
 
 Return positive skew transformations for the data set based on `min`.
 """
-function getPositiveSkewTransformations(min::Real)
+function get_positive_skew_transformations(min::Real)
     if min < 0
         Dict(
             "one arg" => [],
             "two args" => [
-                addThenSquareRoot,
-                addThenSquareRootThenInvert,
-                addThenInvert,
-                addThenSquareThenInvert,
-                addThenLog,
-                addThenNaturalLog,
+                add_then_square_root,
+                add_then_square_root_then_invert,
+                add_then_invert,
+                add_then_square_then_invert,
+                add_then_log_base_10,
+                add_then_natural_log,
             ],
         )
     elseif 0 ≤ min < 1
         Dict(
             "one arg" => [
-                squareRoot,
+                square_root,
             ],
             "two args" => [
-                squareRootThenAddThenInvert,
-                addThenInvert,
-                addThenSquareThenInvert,
-                addThenLog,
-                addThenNaturalLog,
+                square_root_then_add_then_invert,
+                add_then_invert,
+                add_then_square_then_invert,
+                add_then_log_base_10,
+                add_then_natural_log,
             ],
         )
     else
         Dict(
             "one arg" => [
-                squareRoot,
-                squareRootThenInvert,
+                square_root,
+                square_root_then_invert,
                 invert,
-                squareThenInvert,
-                logInBase10,
-                naturalLog,
+                square_then_invert,
+                log_base_10,
+                natural_log,
             ],
             "two args" => [],
         )
@@ -334,13 +408,13 @@ end
 
 # min < 0
 """
-    addThenSquareRoot(x::Real, min::Real)
+    add_then_square_root(x::Real, min::Real)
 
 Add one to the difference of `x` and `min`, and compute its square root.
 
 Throws error if `min > x`.
 """
-function addThenSquareRoot(x::Real, min::Real)
+function add_then_square_root(x::Real, min::Real)
     if min > x
         throw(error("min must be smaller."))
     end
@@ -348,24 +422,24 @@ function addThenSquareRoot(x::Real, min::Real)
 end
 
 """
-    addThenSquareRootThenInvert(x::Real, min::Real)
+    add_then_square_root_then_invert(x::Real, min::Real)
 
 Add one to the difference of `x` and `min`, and compute its reciprocal square root.
 
 Throws error if `min > x`.
 """
-function addThenSquareRootThenInvert(x::Real, min::Real)
-    invert(addThenSquareRoot(x, min))
+function add_then_square_root_then_invert(x::Real, min::Real)
+    invert(add_then_square_root(x, min))
 end
 
 """
-    addThenInvert(x::Real, min::Real)
+    add_then_invert(x::Real, min::Real)
 
 Add one to the difference of `x` and `min`, and compute its reciprocal.
 
 Throws error if `min > x`.
 """
-function addThenInvert(x::Real, min::Real)
+function add_then_invert(x::Real, min::Real)
     if min > x
         throw(error("min must be smaller."))
     end
@@ -373,13 +447,13 @@ function addThenInvert(x::Real, min::Real)
 end
 
 """
-    addThenSquareThenInvert(x::Real, min::Real)
+    add_then_square_then_invert(x::Real, min::Real)
 
 Add one to the difference of squares of `x` and `min`, and compute its reciprocal.
 
 Throws `DivideError` if x^2 + 1 - min^2 is 0.
 """
-function addThenSquareThenInvert(x::Real, min::Real)
+function add_then_square_then_invert(x::Real, min::Real)
     if min > x
         throw(error("The second parameter (min) must be smaller."))
     end
@@ -387,27 +461,27 @@ function addThenSquareThenInvert(x::Real, min::Real)
 end
 
 """
-    addThenLog(x::Real, min::Real)
+    add_then_log_base_10(x::Real, min::Real)
 
 Add one to the difference of `x` and `min`, and compute its logarithm to base 10.
 
 Throws error if `min > x`.
 """
-function addThenLog(x::Real, min::Real)
+function add_then_log_base_10(x::Real, min::Real)
     if min > x
         throw(error("min must be smaller."))
     end
-    logInBase10(x + 1 - min)
+    log_base_10(x + 1 - min)
 end
 
 """
-    logInBase10(x::Real)
+    log_base_10(x::Real)
 
 Compute the logarithm of `x` to base 10.
 
 Throws `DomainError` if `x ≤ 0`.
 """
-function logInBase10(x::Real)
+function log_base_10(x::Real)
     if iszero(x)
         throw(DomainError(x))
     end
@@ -415,70 +489,71 @@ function logInBase10(x::Real)
 end
 
 """
-    addThenNaturalLog(x::Real, min::Real)
+    add_then_natural_log(x::Real, min::Real)
 
 Add one to the difference of `x` and `min`, and compute its natural logarithm.
 
 Throws error if `min > x`.
 """
-function addThenNaturalLog(x::Real, min::Real)
+function add_then_natural_log(x::Real, min::Real)
     if min > x
         throw(error("min must be smaller."))
     end
-    naturalLog(x + 1 - min)
+    natural_log(x + 1 - min)
 end
 
 """
-    naturalLog(x::Real)
+    natural_log(x::Real)
 
 Compute the natural logarithm of `x`.
 
 Throws `DomainError` if `x ≤ 0`.
 """
-function naturalLog(x::Real)
+function natural_log(x::Real)
     if iszero(x)
         throw(DomainError(x))
     end
     log(x)
 end
 
-# 0 ≤ min < 1 (with addThenInvert, addThenSquareThenInvert, addThenLog, addThenNaturalLog)
+# 0 ≤ min < 1 (with add_then_invert, add_then_square_then_invert, add_then_log_base_10, 
+#              add_then_natural_log)
 
 """
-    squareRoot(x::Real)
+    square_root(x::Real)
 
 Compute the square root of `x`.
 
 Throws `DomainError` if `x` is negative.
 """
-function squareRoot(x::Real)
+function square_root(x::Real)
     √x
 end
 
 """
-    squareRootThenAddThenInvert(x::Real, min::Real)
+    square_root_then_add_then_invert(x::Real, min::Real)
 
 Add one to the difference of square roots of `x` and `min`, and compute its reciprocal.
 
 Throws `DomainError` if `x` or `min` is negative, and ErrorException if `min > x`.
 """
-function squareRootThenAddThenInvert(x::Real, min::Real)
+function square_root_then_add_then_invert(x::Real, min::Real)
     if min > x
         throw(error("The second parameter (min) must be smaller."))
     end
     invert(√x + 1 - √min)
 end
 
-# min ≥ 1 (with squareRoot, logInBase10, naturalLog)
+# min ≥ 1 (with square_root, log_base_10, natural_log)
 
 """
-    squareRootThenInvert(x::Real)
+    square_root_then_invert(x::Real)
 
 Compute the reciprocal square root of `x`.
 
 Throws `DomainError` if `x` is negative, and `DivideError` if `x` is 0.
 """
-function squareRootThenInvert(x::Real)
+function square_root_then_invert(x::Real)
     invert(√x)
 end
 
@@ -497,81 +572,82 @@ function invert(x::Real)
 end
 
 """
-    squareThenInvert(x::Real)
+    square_then_invert(x::Real)
 
 Compute the reciprocal square of `x`.
 
 Throws `DivideError` if `x` is 0.
 """
-function squareThenInvert(x::Real)
+function square_then_invert(x::Real)
     invert(x^2)
 end
 
 """
-    recordAllTransformations(df::AbstractDataFrame, transformations::AbstractDict,
-                             extremum::Real; normal_ratio::Real=2) -> AbstractDict
+    record_all_transformations(df::AbstractDataFrame, transformations::AbstractDict,
+                               extremum::Real; normal_ratio::Real=2) -> AbstractDict
 
 
 """
-function recordAllTransformations(df::AbstractDataFrame, transformations::AbstractDict,
-                                  extremum::Real; normal_ratio::Real=2)
-    record = recordTransformations(df, 
-                                   transformations["one arg"], 
-                                   normal_ratio=normal_ratio)
-    other_record = recordTransformations(df, 
-                                         transformations["two args"], 
-                                         extremum,
-                                         normal_ratio=normal_ratio)
-    mergeResults!(record, other_record)
+function record_all_transformations(df::AbstractDataFrame, transformations::AbstractDict,
+                                    extremum::Real; normal_ratio::Real=2)
+    record = record_transformations(df, 
+                                    transformations["one arg"], 
+                                    normal_ratio=normal_ratio)
+    other_record = record_transformations(df, 
+                                          transformations["two args"], 
+                                          extremum,
+                                          normal_ratio=normal_ratio)
+    merge_results!(record, other_record)
 end
 
 """
-    recordTransformations(df::AbstractDataFrame,
-                          transformations::AbstractVector[, extremum::Real]; 
-                          normal_ratio::Real=2) -> AbstractDict
+    record_transformations(df::AbstractDataFrame,
+                           transformations::AbstractVector[, extremum::Real];
+                           normal_ratio::Real=2) -> AbstractDict
 
 
 """
-function recordTransformations(df::AbstractDataFrame, transformations::AbstractVector;
-                               normal_ratio::Real=2)
+function record_transformations(df::AbstractDataFrame, transformations::AbstractVector;
+                                normal_ratio::Real=2)
     record = Dict(
         "normal" => Dict(),
         "df_transformed" => DataFrame(),
     )
     for transformation in transformations
-        results = applyTransformation(transformation, df)
-        updateNormal!(record, results, normal_ratio)
-        mergeCols!(record, results)
+        results = apply_transformation(transformation, df)
+        update_normal!(record, results, normal_ratio)
+        merge_cols!(record, results)
     end
     record
 end
 
-function recordTransformations(df::AbstractDataFrame, transformations::AbstractVector,
-                               extremum::Real; normal_ratio::Real=2)
+function record_transformations(df::AbstractDataFrame, transformations::AbstractVector,
+                                extremum::Real; normal_ratio::Real=2)
     record = Dict(
         "normal" => Dict(),
         "df_transformed" => DataFrame(),
     )
     for transformation in transformations
-        results = applyTransformation(transformation, df, extremum)
-        updateNormal!(record, results, normal_ratio)
-        mergeCols!(record, results)
+        results = apply_transformation(transformation, df, extremum)
+        update_normal!(record, results, normal_ratio)
+        merge_cols!(record, results)
     end
     record
 end
 
 """
-    applyTransformation(f::Function, df::AbstractDataFrame
+    apply_transformation(f::Function, df::AbstractDataFrame
                         [, f_second_arg::Real]) -> AbstractDict
 
 Apply `f` to `df`, and return the skewness, kurtosis, and transformed data frame.
 """
-function applyTransformation(f::Function, df::AbstractDataFrame)
-    df_altered = select(df,
-                        names(df) .=> ByRow(f))
-    rename!(df_altered, getTransformedColnames(f, df_altered))
-    skew = calculateSkewness.(eachcol(df_altered))
-    kurt = calculateKurtosis.(eachcol(df_altered))
+function apply_transformation(f::Function, df::AbstractDataFrame)
+    df_altered = rename(colname -> "$(colname)-+", df)
+    select!(df_altered, 
+            names(df_altered) .=> ByRow(f))
+    rename!(colname -> rename_with_function(f, colname), df_altered)
+    skew = calculate_skewness.(eachcol(df_altered))
+    kurt = calculate_kurtosis.(eachcol(df_altered))
     Dict(
         "skewness" => skew,
         "kurtosis" => kurt,
@@ -579,12 +655,13 @@ function applyTransformation(f::Function, df::AbstractDataFrame)
     )
 end
 
-function applyTransformation(f::Function, df::AbstractDataFrame, f_second_arg::Real)
-    df_altered = select(df,
-                        names(df) .=> ByRow(x -> f(x, f_second_arg)))
-    rename!(df_altered, getTransformedColnames(f, df_altered))
-    skew = calculateSkewness.(eachcol(df_altered))
-    kurt = calculateKurtosis.(eachcol(df_altered))
+function apply_transformation(f::Function, df::AbstractDataFrame, f_second_arg::Real)
+    df_altered = rename(colname -> "$(colname)-+", df)
+    select!(df_altered, 
+            names(df_altered) .=> ByRow(x -> f(x, f_second_arg)))
+    rename!(colname -> rename_with_function(f, colname), df_altered)
+    skew = calculate_skewness.(eachcol(df_altered))
+    kurt = calculate_kurtosis.(eachcol(df_altered))
     Dict(
         "skewness" => skew,
         "kurtosis" => kurt,
@@ -593,22 +670,12 @@ function applyTransformation(f::Function, df::AbstractDataFrame, f_second_arg::R
 end
 
 """
-    getTransformedColnames(f::Function, df::AbstractDataFrame) -> AbstractVector
-
-Return an array of new column names with `f` for `df`.
-"""
-function getTransformedColnames(f::Function, df::AbstractDataFrame)
-    [Symbol(renameWithFunction(f, colname))
-     for colname in names(df)]
-end
-
-"""
-    renameWithFunction(f::Function, name::AbstractString) -> AbstractString
+    rename_with_function(f::Function, name::AbstractString) -> AbstractString
 
 Create a string with `name` and `f`.
 """
-function renameWithFunction(f::Function, name::AbstractString)
-    marker_before_function = findlast("_", name)[1]
+function rename_with_function(f::Function, name::AbstractString)
+    marker_before_function = findlast("-+_", name)[1]
     end_of_original_colname = marker_before_function - 1
     old_name = view(name, 1:end_of_original_colname)
     # change if double underscore is used in original colname
@@ -618,39 +685,77 @@ function renameWithFunction(f::Function, name::AbstractString)
 end
 
 """
-    updateNormal!(d::AbstractDict, other::AbstractDict, normal_ratio::Real=2)
+    update_normal!(d::AbstractDict, other::AbstractDict, normal_ratio::Real=2)
 
 Add the results from `other` to `d` whose ratios are within the range of ±`normal_ratio`.
 """
-function updateNormal!(d::AbstractDict, other::AbstractDict, normal_ratio::Real=2)
+function update_normal!(d::AbstractDict, other::AbstractDict, normal_ratio::Real=2)
     skews = other["skewness"]
     kurts = other["kurtosis"]
-    if areNormal(skews, kurts, normal_ratio)
+    if are_normal(skews, kurts, normal_ratio)
         df_altered = other["df_transformed"]
-        transformations = getAppliedTransformations(df_altered)
-        d["normal"][transformations] = labelFindings(df_altered, skews, kurts)
+        transformations = get_applied_transformations(df_altered)
+        d["normal"][transformations] = label_findings(df_altered, skews, kurts)
     end
     nothing
 end
 
 """
-    getAppliedTransformations(df::AbstractDataFrame) -> SubString
+    get_applied_transformations(df::AbstractDataFrame) -> SubString
 
 Return the transformations that were applied to `df`.
 """
-function getAppliedTransformations(df::AbstractDataFrame)
+function get_applied_transformations(df::AbstractDataFrame)
     new_colname = names(df)[1]
-    before_marker = locateEndOfOriginalColname(new_colname)
+    before_marker = locate_end_of_original_colname(new_colname)
     after_marker = before_marker + 3
-    SubString(new_colname, after_marker)
+    function_names = SubString(new_colname, after_marker)
+    make_legible(function_names)
 end
 
 """
-    locateEndOfOriginalColname(name::AbstractString) -> Integer
+    make_legible(fragment::AbstractString) -> AbstractString
+
+
+"""
+function make_legible(fragment::AbstractString)
+    words = make_phrase(fragment, "_", " ")
+    listable = make_list_phrase(words)
+    make_phrase(listable, "  ", "; ")
+end
+
+"""
+    make_phrase(fragment::AbstractString, split_on::AbstractString,
+                join_with::AbstractString) -> AbstractString
+
+
+"""
+function make_phrase(fragment::AbstractString, split_on::AbstractString, 
+                     join_with::AbstractString)
+    words = split(fragment, split_on)
+    join(words, join_with)
+end
+
+"""
+    make_list_phrase(phrase::AbstractString) -> AbstractString
+
+
+"""
+function make_list_phrase(phrase::AbstractString)
+    words = split(phrase, " then ")
+    if length(words) ≤ 2
+       join(words, " and ")
+    else
+        join(words, ", ", ", and ")
+    end
+end
+
+"""
+    locate_end_of_original_colname(name::AbstractString) -> Integer
 
 Return the index in `name` that is the last character of the original column name.
 """
-function locateEndOfOriginalColname(name::AbstractString)
+function locate_end_of_original_colname(name::AbstractString)
     # change if double underscore is used in original colname
     marker_after_old_colname = "__"
     position = findfirst(marker_after_old_colname, name)[1]
@@ -658,34 +763,34 @@ function locateEndOfOriginalColname(name::AbstractString)
 end
 
 """
-    labelFindings(df::AbstractDataFrame, skewnesses::AbstractVector,
-                  kurtoses::AbstractVector) -> AbstractVector
+    label_findings(df::AbstractDataFrame, skewnesses::AbstractVector,
+                   kurtoses::AbstractVector) -> AbstractVector
 
 
 """
-function labelFindings(df::AbstractDataFrame, skewnesses::AbstractVector,
+function label_findings(df::AbstractDataFrame, skewnesses::AbstractVector,
                        kurtoses::AbstractVector)
     combined = merge.(skewnesses, kurtoses)
-    original_colnames = getOriginalColnames(df)
-    addLabel(combined, original_colnames)
+    original_colnames = get_original_colnames(df)
+    add_label(combined, original_colnames)
 end
 
 """
-    getOriginalColnames(df::AbstractDataFrame) -> AbstractVector
+    get_original_colnames(df::AbstractDataFrame) -> AbstractVector
 
 Return the original column names of `df`.
 """
-function getOriginalColnames(df::AbstractDataFrame)
-    [view(colname, 1:locateEndOfOriginalColname(colname))
+function get_original_colnames(df::AbstractDataFrame)
+    [view(colname, 1:locate_end_of_original_colname(colname))
      for colname in names(df)]
 end
 
 """
-    addLabel(ratios::AbstractVector, names::AbstractVector) -> AbstractVector
+    add_label(ratios::AbstractVector, names::AbstractVector) -> AbstractVector
 
 
 """
-function addLabel(ratios::AbstractVector, names::AbstractVector)
+function add_label(ratios::AbstractVector, names::AbstractVector)
     labeled = []
     for i in 1:length(ratios)
         entry = (
@@ -698,47 +803,47 @@ function addLabel(ratios::AbstractVector, names::AbstractVector)
 end
 
 """
-    mergeCols!(d::AbstractDict, other::AbstractDict) -> AbstractDataFrame
+    merge_cols!(d::AbstractDict, other::AbstractDict) -> AbstractDataFrame
 
 Concatenate `df` and a data frame from `results`.
 """
-function mergeCols!(d::AbstractDict, other::AbstractDict)
+function merge_cols!(d::AbstractDict, other::AbstractDict)
     d["df_transformed"] = hcat(d["df_transformed"], other["df_transformed"])
 end
 
 """
-    mergeResults!(d::AbstractDict, other::AbstractDict) -> AbstractDict
+    merge_results!(d::AbstractDict, other::AbstractDict) -> AbstractDict
 
 
 """
-function mergeResults!(d::AbstractDict, other::AbstractDict)
+function merge_results!(d::AbstractDict, other::AbstractDict)
     merge!(d["normal"], other["normal"])
-    mergeCols!(d, other)
+    merge_cols!(d, other)
     d
 end
 
 """
-    getErrorPositiveSkewTransformations(error::Exception, min::Real) -> AbstractDict
+    get_error_positive_skew_transformations(error::Exception, min::Real) -> AbstractDict
 
 Return positive skew transformations for the data set based on `error` and `min`.
 """
-function getErrorPositiveSkewTransformations(error::Exception, min::Real)
+function get_error_positive_skew_transformations(error::Exception, min::Real)
     if isa(error, DivideError)
         if min < 1
             Dict(
                 "one arg" => [],
                 "two args" => [
-                    addThenSquareRoot,
-                    addThenLog,
-                    addThenNaturalLog,
+                    add_then_square_root,
+                    add_then_log_base_10,
+                    add_then_natural_log,
                 ],
             )
         else
             Dict(
                 "one arg" => [
-                    squareRoot,
-                    logInBase10,
-                    naturalLog,
+                    square_root,
+                    log_base_10,
+                    natural_log,
                 ],
                 "two args" => [],
             )
@@ -747,30 +852,30 @@ function getErrorPositiveSkewTransformations(error::Exception, min::Real)
 end
 
 """
-    areNegativeSkew(skewnesses::AbstractVector) -> Bool
+    are_negative_skew(skewnesses::AbstractVector) -> Bool
 
 Return `true` if `skewnesses` contains any negative ratios, and `false` otherwise.
 """
-function areNegativeSkew(skewnesses::AbstractVector)
-    containsSkew(isNegativeSkew, skewnesses)
+function are_negative_skew(skewnesses::AbstractVector)
+    contains_skew(is_negative_skew, skewnesses)
 end
 
 """
-    isNegativeSkew(skewness_ratio::Real) -> Bool
+    is_negative_skew(skewness_ratio::Real) -> Bool
 
 Return `true` if `skewness_ratio` is negative, and `false` otherwise.
 """
-function isNegativeSkew(skewness_ratio::Real)
+function is_negative_skew(skewness_ratio::Real)
     skewness_ratio < 0
 end
 
 """
-    transformNegativeSkew(df::AbstractDataFrame, normal_ratio::Real=2) -> AbstractDict
+    transform_negative_skew(df::AbstractDataFrame, normal_ratio::Real=2) -> AbstractDict
 
 
 """
-function transformNegativeSkew(df::AbstractDataFrame, normal_ratio::Real=2)
-    largest = getExtremum(maximum, df)
+function transform_negative_skew(df::AbstractDataFrame, normal_ratio::Real=2)
+    largest = get_extremum(maximum, df)
     negative_transformations = Dict(
         "one arg" => [
             square,
@@ -778,15 +883,15 @@ function transformNegativeSkew(df::AbstractDataFrame, normal_ratio::Real=2)
             antilog,
         ],
         "two args" => [
-            reflectThenSquareRoot,
-            reflectThenLog,
-            reflectThenInvert,
+            reflect_then_square_root,
+            reflect_then_log_base_10,
+            reflect_then_invert,
         ],
     )
-    recordAllTransformations(df, 
-                             negative_transformations, 
-                             largest, 
-                             normal_ratio=normal_ratio)
+    record_all_transformations(df, 
+                               negative_transformations, 
+                               largest, 
+                               normal_ratio=normal_ratio)
 end
 
 """
@@ -817,13 +922,13 @@ function antilog(x::Real)
 end
 
 """
-    reflectThenSquareRoot(x::Real, max::Real)
+    reflect_then_square_root(x::Real, max::Real)
 
 Add one to the difference of `max` and `x`, and return its square root.
 
 Throws error if `max < x`.
 """
-function reflectThenSquareRoot(x::Real, max::Real)
+function reflect_then_square_root(x::Real, max::Real)
     if max < x
         throw(error("max must be greater."))
     end
@@ -831,27 +936,27 @@ function reflectThenSquareRoot(x::Real, max::Real)
 end
 
 """
-    reflectThenLog(x::Real, max::Real)
+    reflect_then_log_base_10(x::Real, max::Real)
 
 Add one to the difference of `max` and `x`, and compute its logarithm to base 10.
 
 Throws error if `max < x`.
 """
-function reflectThenLog(x::Real, max::Real)
+function reflect_then_log_base_10(x::Real, max::Real)
     if max < x
         throw(error("max must be greater."))
     end
-    logInBase10(max + 1 - x)
+    log_base_10(max + 1 - x)
 end
 
 """
-    reflectThenInvert(x::Real, max::Real)
+    reflect_then_invert(x::Real, max::Real)
 
 Add one to the difference of `max` and `x`, and compute its reciprocal.
 
 Throws error if `max < x`.
 """
-function reflectThenInvert(x::Real, max::Real)
+function reflect_then_invert(x::Real, max::Real)
     if max < x
         throw(error("max must be greater."))
     end
@@ -859,11 +964,11 @@ function reflectThenInvert(x::Real, max::Real)
 end
 
 """
-    getErrorNegativeSkewTransformations(error::Exception) -> AbstractDict
+    get_error_negative_skew_transformations(error::Exception) -> AbstractDict
 
 Return negative skew transformations for the data set based on `error` and `max`.
 """
-function getErrorNegativeSkewTransformations(error::Exception)
+function get_error_negative_skew_transformations(error::Exception)
     if isa(error, DomainError)
         Dict(
             "one arg" => [
@@ -872,7 +977,7 @@ function getErrorNegativeSkewTransformations(error::Exception)
                 antilog,
             ],
             "two args" => [
-                reflectThenInvert,
+                reflect_then_invert,
             ],
         )
     elseif isa(error, DivideError)
@@ -883,40 +988,40 @@ function getErrorNegativeSkewTransformations(error::Exception)
                 antilog,
             ],
             "two args" => [
-                reflectThenSquareRoot,
-                reflectThenLog,
+                reflect_then_square_root,
+                reflect_then_log_base_10,
             ],
         )
     end
 end
 
 """
-    stretchSkew(df::AbstractDataFrame, normal_ratio::Real=2) -> AbstractDict
+    stretch_skew(df::AbstractDataFrame, normal_ratio::Real=2) -> AbstractDict
 
 
 """
-function stretchSkew(df::AbstractDataFrame, normal_ratio::Real=2)
+function stretch_skew(df::AbstractDataFrame, normal_ratio::Real=2)
     stretch_transformations = [
-        addThenLogit,
+        add_then_logit,
         logit,
     ]
-    if containsInvalidForAddThenLogit(df)
+    if contains_invalid_for_add_then_logit(df)
         popfirst!(stretch_transformations)
     end
-    if containsInvalidForLogit(df)
+    if contains_invalid_for_logit(df)
         pop!(stretch_transformations)
     end
-    recordTransformations(df, stretch_transformations, normal_ratio=normal_ratio)
+    record_transformations(df, stretch_transformations, normal_ratio=normal_ratio)
 end
 
 """
-    addThenLogit(x::Real)
+    add_then_logit(x::Real)
 
 Increase `x` by `0.25`, and compute the logit in base 10.
 
 Throws `DomainError` if `x` = -0.25, and `DivideError` if `x` = 0.75.
 """
-function addThenLogit(x::Real)
+function add_then_logit(x::Real)
     logit(x + 0.25)
 end
 
@@ -928,83 +1033,84 @@ Compute the logit of `x` to base 10.
 Throws `DomainError` if `x` = 0, and `DivideError` if `x` = 1.
 """
 function logit(x::Real)
-    logInBase10(abs(x * invert(1 - x)))
+    log_base_10(abs(x * invert(1 - x)))
 end
 
 """
-    containsInvalidForAddThenLogit(df::AbstractDataFrame) -> Bool
+    contains_invalid_for_add_then_logit(df::AbstractDataFrame) -> Bool
+
 
 """
-function containsInvalidForAddThenLogit(df::AbstractDataFrame)
-    containsPredicated(isInvalidForAddThenLogit, df)
+function contains_invalid_for_add_then_logit(df::AbstractDataFrame)
+    contains_predicated(is_invalid_for_add_then_logit, df)
 end
 
 """
-    containsPredicated(f::Function, df::AbstractDataFrame
+    contains_predicated(f::Function, df::AbstractDataFrame
                        [, f_second_arg::Real]) -> Bool
 
 Return `true` if `f` returns any values from `df`, and false otherwise.
 """
-function containsPredicated(f::Function, df::AbstractDataFrame)
-    filtered_cols = getFilteredCols(f, df)
+function contains_predicated(f::Function, df::AbstractDataFrame)
+    filtered_cols = get_filtered_cols(f, df)
     sum(length.(filtered_cols)) > 0
 end
 
-function containsPredicated(f::Function, df::AbstractDataFrame, f_second_arg::Real)
-    filtered_cols = getFilteredCols(f, df, f_second_arg)
+function contains_predicated(f::Function, df::AbstractDataFrame, f_second_arg::Real)
+    filtered_cols = get_filtered_cols(f, df, f_second_arg)
     sum(length.(filtered_cols)) > 0
 end
 
 """
-    isInvalidForAddThenLogit(x::Real) -> Bool
+    is_invalid_for_add_then_logit(x::Real) -> Bool
 
 
 """
-function isInvalidForAddThenLogit(x::Real)
+function is_invalid_for_add_then_logit(x::Real)
     x === -0.25 || x === 0.75
 end
 
 """
-    containsInvalidForLogit(df::AbstractDataFrame) -> Bool
+    contains_invalid_for_logit(df::AbstractDataFrame) -> Bool
 
 Return `true` if `0` or `1` exists in `df`, and `false` otherwise.
 """
-function containsInvalidForLogit(df::AbstractDataFrame)
-    containsPredicated(isInvalidForLogit, df)
+function contains_invalid_for_logit(df::AbstractDataFrame)
+    contains_predicated(is_invalid_for_logit, df)
 end
 
 """
-    isInvalidForLogit(x::Real) -> Bool
+    is_invalid_for_logit(x::Real) -> Bool
 
 Return `true` if `x` is 0 or 1.
 """
-function isInvalidForLogit(x::Real)
+function is_invalid_for_logit(x::Real)
     iszero(x) || isone(x)
 end
 
 """
-    printSkewnessKurtosis(df::AbstractDataFrame)
+    print_skewness_kurtosis(df::AbstractDataFrame)
 
 Print the skewness and kurtosis (statistic, standard error, ratio) of each column in `df`.
 """
-function printSkewnessKurtosis(df::AbstractDataFrame)
+function print_skewness_kurtosis(df::AbstractDataFrame)
     for colname in names(df)
-        skew = calculateSkewness(df[!, colname])
-        kurt = calculateKurtosis(df[!, colname])
+        skew = calculate_skewness(df[!, colname])
+        kurt = calculate_kurtosis(df[!, colname])
         label = (
             name = colname,
         )
         combined = merge(skew, kurt, label)
-        printSummary(combined)
+        print_summary(combined)
     end
 end
 
 """
-    printSummary(sk::NamedTuple)
+    print_summary(sk::NamedTuple)
 
 
 """
-function printSummary(sk::NamedTuple)
+function print_summary(sk::NamedTuple)
     println("""
         --------
         Variable: $(sk.name)
@@ -1018,7 +1124,7 @@ function printSummary(sk::NamedTuple)
 end
 
 """
-    stringToFloat!(df::AbstractDataFrame) -> AbstractDataFrame
+    string_to_float!(df::AbstractDataFrame) -> AbstractDataFrame
 
 Convert columns of type `String` to `Float64` in `df`.
 
@@ -1034,7 +1140,7 @@ julia> df = DataFrame(a=1:2, b=["4", "5.2"])
    1 │     1  4
    2 │     2  5.2
 
-julia> stringToFloat!(df)
+julia> string_to_float!(df)
 2×2 DataFrame
  Row │ a      b
      │ Int64  Float64
@@ -1043,11 +1149,11 @@ julia> stringToFloat!(df)
    2 │     2      5.2
 ```
 """
-function stringToFloat!(df::AbstractDataFrame)
+function string_to_float!(df::AbstractDataFrame)
     for colname in names(df)
         col = df[!, colname]
         if eltype(col) === String
-            blankToNaN!(col)
+            blank_to_nan!(col)
             df[!, colname] = parse.(Float64, col)
         end
     end
@@ -1055,7 +1161,7 @@ function stringToFloat!(df::AbstractDataFrame)
 end
 
 """
-    blankToNaN!(col::AbstractVector) -> AbstractVector
+    blank_to_nan!(col::AbstractVector) -> AbstractVector
 
 Replace blank values with `"NaN"` in `col`.
 
@@ -1073,21 +1179,21 @@ julia> replaceBlank!(df)
    3 │ NaN     3
 ```
 """
-function blankToNaN!(col::AbstractVector)
+function blank_to_nan!(col::AbstractVector)
     replace!(col, " " => "NaN")
 end
 
 """
-    printFindings(results::AbstractVector)
+    print_findings(results::AbstractVector)
 
 
 """
-function printFindings(results::AbstractVector)
+function print_findings(results::AbstractVector)
     try
         normal = results[1]["normal"]
         for (transformation, altered) in normal
             println("APPLIED: $transformation")
-            printSummary.(altered)
+            print_summary.(altered)
             println("\n")
         end
     catch e
