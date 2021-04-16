@@ -7,7 +7,7 @@ This tool provides the skewness and kurtosis details of a dataset, and if the da
 
 ## Info
 
-Skewness and kurtosis details are listed as their statistic, standard error, and ratio. The available transformations for normalizations are those concerning positive skew, negative skew, and stretch skew. Details about them are displayed in the notebook. Procedures of loading and transforming the dataset are also in the notebook.
+Skewness and kurtosis details are listed as their statistic, standard error, and ratio. The available transformations for normalizations are those concerning positive skew, negative skew, and stretch skew, which are detailed in the notebook. Procedures of loading and transforming the dataset are also in the notebook.
 
 ## Setup
 
