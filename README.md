@@ -133,9 +133,12 @@ Kurtosis Ratio: 1.448
 ## Todos
 
 - Docstrings
+  - ~~Descriptions~~
+  - Examples
 - Function to normalize multiple times
-- Overflow warning
 - Optimize performance
+- Overflow warning
+- Update tests
 
 ## Contact
 
