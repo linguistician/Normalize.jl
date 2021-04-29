@@ -135,7 +135,9 @@ Kurtosis Ratio: 1.448
 - Docstrings
   - ~~Descriptions~~
   - Examples
+- Function to normalize differences of dependent variables
 - Function to normalize multiple times
+- Function to normalize with group variable
 - Optimize performance
 - Overflow warning
 - Update tests
