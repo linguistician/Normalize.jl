@@ -1,5 +1,6 @@
 # Normalize
 
+[![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
 [![Build Status](https://travis-ci.com/quanteconuser/Normalize.jl.svg?branch=master)](https://travis-ci.com/quanteconuser/Normalize.jl)
 [![Coverage](https://codecov.io/gh/quanteconuser/Normalize.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/quanteconuser/Normalize.jl)
 
@@ -137,7 +138,7 @@ Kurtosis Ratio: 1.448
   - Examples
 - Function to normalize differences of dependent variables
 - Function to normalize multiple times
-- Function to normalize with group variable
+- ~~Function to normalize with group variable~~
 - Optimize performance
 - Overflow warning
 - Update tests
