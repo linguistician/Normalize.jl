@@ -15,22 +15,48 @@ export get_skew_transformations, get_stretch_skew_transformations
 export kurtosis, kurtosis_error, kurtosis_stat, kurtosis_variance
 export print_findings, print_skewness_kurtosis
 export skewness, skewness_error, skewness_stat, skewness_variance
-export missing_to_nan!, string_to_float!, tabular_to_dataframe
+export replace_missing!, string_to_float!
+export normal_to_csv, tabular_to_dataframe
 
 """
-    normalize(gdf; normal_ratio::Real=2, marker="__") -> AbstractDict
+    normalize(
+        gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__"
+    ) -> AbstractDict
 
 Normalize a (grouped) data frame `gdf` for its skewness and kurtosis ratios to be within
 the range of ±`normal_ratio`.
+
+If `dependent` is `true`, then the difference between the columns of `gdf` will be
+normalized.
 
 Functions will be separately applied to `gdf`, and the column names of the transformed
 data frame will be suffixed with a string `marker` and the applied functions.
 
 A dictionary is returned with the following key-value pairs:
-- `"normal"` => a dictionary of named tuples containing skewnesses and kurtoses
-- `"transformed gdf"` => a transformed (group) data frame from applying functions to `gdf`
+- `"normalized"` => a dictionary of a collection value of named tuples containing
+    skewnesses and kurtoses for each normal transformation key
+- `"normal gdf"` => a transformed data frame or list of grouped data frames whose data are
+    normal
+- `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
+    are nonnormal
 """
-function normalize(gdf; normal_ratio::Real=2, marker="__")
+function normalize(gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__")
+    if dependent
+        if isa(gdf, AbstractDataFrame) && ncol(gdf) === 2
+            var = names(gdf)[1]
+            var2 = names(gdf)[2]
+            gdf = DataFrame(["$(var)_minus_$(var2)" => gdf[var] .- gdf[var2]])
+        else
+            println(
+                "There can only be one group and two dependent variables to normalize."
+            )
+            return Dict(
+                "normalized" => Dict(),
+                "normal gdf" => DataFrame(),
+                "nonnormal gdf" => DataFrame(),
+            )
+        end
+    end
     transformations = get_skew_transformations(gdf; normal_ratio)
     return record_all(gdf, transformations; normal_ratio, marker)
 end
@@ -78,9 +104,11 @@ end
 
 function _get_skewness_kurtosis(gd)
     gd_new = combine(gd, valuecols(gd) => x -> [skewness(x), kurtosis(x),]; ungroup=false)
-    return [merge(gd_new[group][colname]...)
-            for group in keys(gd_new)
-                for colname in valuecols(gd_new)]
+    return [
+        merge(gd_new[group][colname]...)
+        for group in keys(gd_new)
+            for colname in valuecols(gd_new)
+    ]
 end
 
 """
@@ -98,9 +126,9 @@ function skewness(col, round_to=3)
     error = skewness_error(col, round_to)
     ratio = round(stat * invert(error); digits=round_to)
     return (
-        skewness_stat = stat,
-        skewness_error = error,
-        skewness_ratio = ratio,
+        skewness_stat=stat,
+        skewness_error=error,
+        skewness_ratio=ratio,
     )
 end
 
@@ -175,9 +203,9 @@ function kurtosis(col, round_to=3)
     error = kurtosis_error(col, round_to)
     ratio = round(stat * invert(error); digits=round_to)
     return (
-        kurtosis_stat = stat,
-        kurtosis_error = error,
-        kurtosis_ratio = ratio,
+        kurtosis_stat=stat,
+        kurtosis_error=error,
+        kurtosis_ratio=ratio,
     )
 end
 
@@ -745,9 +773,12 @@ Functions will be separately applied to `gdf`, and the column names of the trans
 (grouped) data frame will be suffixed with a string `marker` and the applied functions.
 
 A dictionary is returned with the following key-value pairs:
-- `"normal"` => a dictionary of named tuples containing skewnesses and kurtoses
-- `"transformed gdf"` => a transformed data frame or list of grouped data frames from
-    applying functions to `gdf`
+- `"normalized"` => a dictionary of a collection value of named tuples containing
+    skewnesses and kurtoses for each normal transformation key
+- `"normal gdf"` => a transformed data frame or list of grouped data frames whose data are
+    normal
+- `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
+    are nonnormal
 """
 function record_all(gdf, transform_series; normal_ratio::Real=2, marker="__")
     first_record = record(gdf, transform_series["one arg"]; normal_ratio, marker)
@@ -779,9 +810,12 @@ transformed (grouped) data frame will be suffixed with a string `marker` and the
 functions.
 
 A dictionary is returned with the following key-value pairs:
-- `"normal"` => a dictionary of named tuples containing skewnesses and kurtoses
-- `"transformed gdf"` => a transformed data frame or list of grouped data frames from
-    applying functions to `df` (returning the former) or `gd` (returning the latter)
+- `"normalized"` => a dictionary of a collection value of named tuples containing
+    skewnesses and kurtoses for each normal transformation key
+- `"normal gdf"` => a transformed data frame or list of grouped data frames whose data are
+    normal
+- `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
+    are nonnormal
 """
 function record(
     df::AbstractDataFrame,
@@ -790,13 +824,13 @@ function record(
     marker="__"
 )
     main_record = Dict(
-        "normal" => Dict(),
-        "transformed gdf" => DataFrame(),
+        "normalized" => Dict(),
+        "normal gdf" => DataFrame(),
+        "nonnormal gdf" => DataFrame(),
     )
     for transformation in transformations
         results = apply(transformation, df; marker)
         _update_normal!(main_record, results; normal_ratio, marker)
-        _merge_cols!(main_record, results)
     end
 
     return main_record
@@ -804,13 +838,13 @@ end
 
 function record(df::AbstractDataFrame, transformations; normal_ratio::Real=2, marker="__")
     main_record = Dict(
-        "normal" => Dict(),
-        "transformed gdf" => DataFrame(),
+        "normalized" => Dict(),
+        "normal gdf" => DataFrame(),
+        "nonnormal gdf" => DataFrame(),
     )
     for (transformation, extremum) in transformations
         results = apply(transformation, df, extremum; marker)
         _update_normal!(main_record, results; normal_ratio, marker)
-        _merge_cols!(main_record, results)
     end
 
     return main_record
@@ -818,13 +852,13 @@ end
 
 function record(gd, transformations::Vector{Function}; normal_ratio::Real=2, marker="__")
     main_record = Dict(
-        "normal" => Dict(),
-        "transformed gdf" => [],
+        "normalized" => Dict(),
+        "normal gdf" => [],
+        "nonnormal gdf" => [],
     )
     for transformation in transformations
         results = apply(transformation, gd; marker)
         _update_normal!(main_record, results; normal_ratio, marker)
-        _store_grouped!(main_record, results)
     end
 
     return main_record
@@ -832,13 +866,13 @@ end
 
 function record(gd, transformations; normal_ratio::Real=2, marker="__")
     main_record = Dict(
-        "normal" => Dict(),
-        "transformed gdf" => [],
+        "normalized" => Dict(),
+        "normal gdf" => [],
+        "nonnormal gdf" => [],
     )
     for (transformation, extremum) in transformations
         results = apply(transformation, gd, extremum; marker)
         _update_normal!(main_record, results; normal_ratio, marker)
-        _store_grouped!(main_record, results)
     end
 
     return main_record
@@ -934,7 +968,7 @@ end
 
 function _rename_with(fragment, name; marker="__")
     old_name = _get_original(name)
-    return old_name * marker * string(fragment)
+    return "$(old_name)$(marker)$(fragment)"
 end
 
 function _get_original(colname; marker="__")
@@ -955,7 +989,7 @@ end
 
 function _rename_valuecols(gd, fragment; marker="__")
     grouping = groupcols(gd)
-    new_names = [string(name) => _rename_with(string(fragment), string(name); marker)
+    new_names = [name => _rename_with(fragment, string(name); marker)
                  for name in valuecols(gd)]
     df_altered = rename(DataFrame(gd), new_names)
     return groupby(df_altered, grouping)
@@ -964,6 +998,11 @@ end
 function _update_normal!(main_dict, other_dict; normal_ratio::Real=2, marker="__")
     if are_normal(other_dict["skewness and kurtosis"]; normal_ratio)
         _label_findings(main_dict, other_dict; marker)
+        _store_transformed!(
+            main_dict, "normal gdf", other_dict["transformed gdf"]
+        )
+    else
+        _store_transformed!(main_dict, "nonnormal gdf", other_dict["transformed gdf"])
     end
 
     return nothing
@@ -975,14 +1014,39 @@ function _label_findings(main_dict, other_dict; marker="__")
     if isa(gdf_altered, AbstractDataFrame)
         original_colnames = _get_original.(names(gdf_altered); marker)
     else
-        original_colnames = _get_original.(
-            string(colname) for colname in valuecols(gd); marker
+        originals = _get_original.(
+            string(colname) for colname in valuecols(gdf_altered); marker
         )
+        original_colnames = _concat_groupnames(gdf_altered, originals)
     end
-    main_dict["normal"][transformations] = _label.(
+    main_dict["normalized"][transformations] = _label.(
         other_dict["skewness and kurtosis"], original_colnames
     )
-    return main_dict["normal"][transformations]
+    return main_dict["normalized"][transformations]
+end
+
+function _concat_groupnames(gd, colnames)
+    new_names = []
+    for var in colnames
+        for group in keys(gd)
+            grouping = chop(string(group), head=11)
+            push!(new_names,"$var ($grouping)")
+        end
+    end
+
+    return new_names
+end
+
+function _store_transformed!(main_dict, key, value::AbstractDataFrame)
+    main_dict[key] = hcat(main_dict[key], value)
+end
+
+function _store_transformed!(main_dict, key, value)
+    if isempty(value)
+        return append!(main_dict[key], value)
+    else
+        return push!(main_dict[key], value)
+    end
 end
 
 function _get_applied_function_names(df::AbstractDataFrame; marker="__")
@@ -1035,30 +1099,14 @@ function _label(prelim, tag)
     return merge(entry, prelim)
 end
 
-function _merge_cols!(main_dict, other_dict)
-    main_dict["transformed gdf"] = hcat(
-        main_dict["transformed gdf"], 
-        other_dict["transformed gdf"],
-    )
-    return main_dict["transformed gdf"]
-end
-
-function _store_grouped!(main_dict, other_dict)
-    if isempty(other_dict["transformed gdf"])
-        return append!(main_dict["transformed gdf"], other_dict["transformed gdf"])
-    else
-        return push!(main_dict["transformed gdf"], other_dict["transformed gdf"])
-    end
-end
-
 function _merge_results!(main_dict, other_dict)
-    merge!(main_dict["normal"], other_dict["normal"])
-    if isa(other_dict["transformed gdf"], AbstractDataFrame)
-        _merge_cols!(main_dict, other_dict)
-    else
-        _store_grouped!(main_dict, other_dict)
-    end
-
+    merge!(main_dict["normalized"], other_dict["normalized"])
+    _store_transformed!(
+        main_dict, "normal gdf", other_dict["normal gdf"]
+    )
+    _store_transformed!(
+        main_dict, "nonnormal gdf", other_dict["nonnormal gdf"]
+    )
     return main_dict
 end
 
@@ -1115,10 +1163,10 @@ julia> string_to_float!(df)
 """
 function string_to_float!(df)
     for colname in names(df)
-        col = df[!, colname]
+        col = df[colname]
         if eltype(col) === String
             replace!(col, " " => "NaN")
-            df[!, colname] = parse.(Float64, col)
+            df[colname] = parse.(Float64, col)
         end
     end
 
@@ -1126,16 +1174,16 @@ function string_to_float!(df)
 end
 
 """
-    missing_to_nan!(df) -> AbstractDataFrame
+    replace_missing!(df, new_value) -> AbstractDataFrame
 
-Replace all occurrences of `missing` with `NaN` in a data frame `df`.
+Replace all occurrences of `missing` with a number `new_value` in a data frame `df`.
 """
-function missing_to_nan!(df)
+function replace_missing!(df, new_value)
     for colname in names(df)
-        col = df[!, colname]
+        col = df[colname]
         nonmissing = nonmissingtype(eltype(col))
         if nonmissing <: Real
-            replace!(col, missing => NaN)
+            replace!(col, missing => new_value)
         end
     end
 
@@ -1143,28 +1191,34 @@ function missing_to_nan!(df)
 end
 
 """
-    print_skewness_kurtosis(df::AbstractDataFrame)
+    print_skewness_kurtosis(df::AbstractDataFrame; dependent::Bool=false)
     print_skewness_kurtosis(gd)
 
 Print the skewness and kurtosis (statistic, standard error, ratio) of each column in a
 data frame `df` or grouped data frame `gd`.
+
+If `dependent` is `true`, then the skewness and kurtosis of the difference between the
+columns of `df` will be printed.
 """
-function print_skewness_kurtosis(df::AbstractDataFrame)
-    for colname in names(df)
-        skew = skewness(df[!, colname])
-        kurt = kurtosis(df[!, colname])
-        tag = (
-            name=colname,
-        )
-        tagged = merge(tag, skew, kurt)
-        _print_summary(tagged)
+function print_skewness_kurtosis(df::AbstractDataFrame; dependent::Bool=false)
+    if dependent
+        if ncol(df) === 2
+            _print_dependent(df)
+        else
+            println("""
+                There can only be two dependent variables to measure skewness and kurtosis.
+                """
+            )
+        end
+    else
+        _print_independent(df)
     end
 end
 
 function print_skewness_kurtosis(gd)
-    gd_new = combine(gd, valuecols(gd) => x -> [skewness(x), kurtosis(x),]; ungroup=false)
+    gd_new = combine(gd, valuecols(gd) .=> x -> [skewness(x), kurtosis(x),]; ungroup=false)
     for group in keys(gd_new)
-        grouping = chop(string(group), head=11, tail=2)
+        grouping = chop(string(group), head=11)
         for colname in valuecols(gd_new)
             var = chop(string(colname), tail=length("_function"))
             tag = (
@@ -1175,6 +1229,22 @@ function print_skewness_kurtosis(gd)
             _print_summary(tagged)
         end
     end
+end
+
+function _print_independent(df)
+    for colname in names(df)
+        tagged = _describe_var(df[colname], colname)
+        _print_summary(tagged)
+    end
+end
+
+function _describe_var(col, colname)
+    skew = skewness(col)
+    kurt = kurtosis(col)
+    tag = (
+        name=colname,
+    )
+    return merge(tag, skew, kurt)
 end
 
 function _print_summary(factor::NamedTuple)
@@ -1192,25 +1262,113 @@ function _print_summary(factor::NamedTuple)
     )
 end
 
+function _print_dependent(df)
+    var = names(df)[1]
+    var2 = names(df)[2]
+    difference = df[var] .- df[var2]
+    tagged = _describe_var(difference, "$(var)_minus_$(var2)")
+    _print_summary(tagged)
+end
+
 """
     print_findings(findings)
 
 Print the normal skewness and kurtosis in a dictionary `findings`.
 
-`findings` has a key `normal` with named tuples for each normal transformation.
+`findings` has the following key-value pairs:
+- `"normalized"` => a dictionary of a collection value of named tuples containing
+    skewnesses and kurtoses for each normal transformation key
+- `"normal gdf"` => a transformed data frame or list of grouped data frames whose data are
+    normal
+- `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
+    are nonnormal
 """
 function print_findings(findings)
-    normal = findings["normal"]
+    normal = findings["normalized"]
     for (transformation, altered) in normal
         println("APPLIED: $transformation")
         _print_summary.(altered)
         println("\n")
     end
 
-    if isempty(findings["transformed gdf"])
+    if  isempty(findings["nonnormal gdf"]) && isempty(findings["normal gdf"])
         println("No transformations applied, so unable to normalize.")
     elseif isempty(normal)
         println("Transformations applied, but no normal results.")
+    end
+end
+
+"""
+    normal_to_csv(path, findings; dependent::Bool=false)
+
+Export normal data from a dictionary `findings` to a csv file in a string `path`.
+
+If `path` already exists (i.e., a file has the same name), then the file will be
+overwritten. Otherwise, a new file will be created.
+
+If `dependent` is `true`, then a column of zeros will be created in the csv for dependent
+testing.
+
+If there are any `NaN`, they will be replaced with `missing` in the csv.
+"""
+function normal_to_csv(path, findings; dependent::Bool=false)
+    if !endswith(path, ".csv")
+        println("Only a filename ending in .csv can be used.")
+        return nothing
+    end
+    normal_data = findings["normal gdf"]
+    if isempty(normal_data)
+        println("There is no normal data to export.")
+        return nothing
+    end
+
+    if isa(normal_data, AbstractDataFrame)
+        df_normal = normal_data
+    else
+        df_normal = _flatten_grouped_data_frames(normal_data)
+    end
+
+    if dependent
+        df_zero = DataFrame(["for_dependent_test" => zeros(nrow(df_normal))])
+        df_normal = hcat(df_normal, df_zero)
+    end
+    CSV.write(path, df_normal, transform=(col, val) -> _nan_to(missing, val))
+    return nothing
+end
+
+function _flatten_grouped_data_frames(gdfs)
+    df_new = DataFrame()
+    df_new = _store_groupcols(df_new, gdfs)
+    df_new = _store_valuecols(df_new, gdfs)
+    return df_new
+end
+
+function _store_groupcols(df, gdfs)
+    gd_example = gdfs[1]
+    df_example = DataFrame(gd_example)
+    for group in groupcols(gd_example)
+        df = hcat(df, df_example[[group]])
+    end
+
+    return df
+end
+
+function _store_valuecols(df, gdfs)
+    for grouped in gdfs
+        df_convert = DataFrame(grouped)
+        for colname in valuecols(grouped)
+            df = hcat(df, df_convert[[colname]])
+        end
+    end
+
+    return df
+end
+
+function _nan_to(new_value, original)
+    if original === NaN
+        return new_value
+    else
+        return original
     end
 end
 
