@@ -20,7 +20,7 @@ Download the project through Code, or through [Git](https://git-scm.com/download
 $ git clone https://github.com/muhadamanhuri/Normalize.jl.git
 ```
 
-To open Normalize.ipynb in the notebook folder, open [Julia REPL](https://julialang.org/downloads/) in the [command line](https://julialang.org/downloads/platform/), add IJulia, and use the `notebook` function.
+To open Normalize.ipynb in the notebook folder, run [Julia](https://julialang.org/downloads/) in the [command line](https://julialang.org/downloads/platform/), add IJulia, and use the `notebook` function.
 
 ```
 $ cd path/of/project/folder
@@ -42,7 +42,7 @@ Click the code cells, and click Run.
 
 ### Module
 
-If you want only the module, follow the download options through Code or Git above, or add the package in the Julia REPL. It is recommended to create a project environment beforehand.
+If you want only the module, follow the download options through Code or Git above, or add the package in Julia. It is recommended to create a project environment beforehand.
 
 ```
 julia> import Pkg; Pkg.activate("projectname")
@@ -55,7 +55,7 @@ julia> using Normalize
 ## Example
 
 ```
-julia> using Normalize, DataFrame
+julia> using Normalize, DataFrames
 
 julia> df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
 
