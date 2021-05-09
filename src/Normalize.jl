@@ -64,12 +64,12 @@ end
 """
     get_skew_transformations(gdf; normal_ratio::Real=2) -> AbstractDict
 
-Return functions to apply to a (grouped) data frame `gdf` if the skewness and kurtosis
-ratios of a `gdf` are not within the range of ±`normal_ratio`.
+Return functions to apply to a (grouped) data frame `gdf` if its skewness and kurtosis
+ratios are not within the range of ±`normal_ratio`.
 
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require one argument
+- `"two args"` => a collection of functions that require two arguments
 """
 function get_skew_transformations(gdf; normal_ratio::Real=2)
     skews_and_kurts = _get_skewness_kurtosis(gdf)
@@ -319,6 +319,14 @@ function _contains(func, df::AbstractDataFrame, func_other_arg)
     return sum(length.(filtered_cols)) > 0
 end
 
+function _filter_cols(func, df)
+    return filter.(func, eachcol(df))
+end
+
+function _filter_cols(func, df, func_other_arg)
+    return filter.(x -> func(x, func_other_arg), eachcol(df))
+end
+
 """
     is_positive_skew(skewness_ratio::Real) -> Bool
 
@@ -335,7 +343,7 @@ Return functions to transform positive skew for a data frame `df`.
 
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require one argument
+- `"two args"` => a collection of functions that require two arguments
 """
 function get_positive_skew_transformations(df)
     min = _extrema(df)[1]
@@ -391,14 +399,6 @@ function _extrema(df)
     maxes_from_cols = maximum.(filtered_cols)
     max = maximum(maxes_from_cols)
     return (min, max)
-end
-
-function _filter_cols(func, df)
-    return filter.(func, eachcol(df))
-end
-
-function _filter_cols(func, df, func_other_arg)
-    return filter.(x -> func(x, func_other_arg), eachcol(df))
 end
 
 # min < 0 
@@ -510,7 +510,8 @@ end
 
 Compute ``\\frac{1}{x^2 + 1 - min^2}``.
 
-Throw `DivideError` if x^2 + 1 - min^2 is 0.
+Throw `DivideError` if x^2 + 1 - min^2 is 0, and ErrorException if `min > x`.
+    .
 """
 function square_then_add_then_invert(x::Real, min::Real)
     if min > x
@@ -606,7 +607,7 @@ Return functions to transform negative skew for a data frame `df`.
 
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require one argument
+- `"two args"` => a collection of functions that require two arguments
 """
 function get_negative_skew_transformations(df)
     max = _extrema(df)[2]
@@ -705,7 +706,7 @@ Return functions to stretch skew for a data frame `df`.
 
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require one argument
+- `"two args"` => a collection of functions that require two arguments
 """
 function get_stretch_skew_transformations(df)
     stretch = Dict(
@@ -762,12 +763,12 @@ end
 
 Compute the skewness and kurtosis for each function in a dictionary `transform_series`
 applied to a (grouped) data frame `gdf`, and return a dictionary of transformed columns in 
-a (grouped) data frame and of any resulting skewness and kurtosis whose ratios are within
-the range of ±`normal_ratio`.
+a data frame or grouped data frames, and of any resulting skewness and kurtosis whose
+ratios are within the range of ±`normal_ratio`.
 
 `transform_series` has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require one argument
+- `"two args"` => a collection of functions that require two arguments
 
 Functions will be separately applied to `gdf`, and the column names of the transformed
 (grouped) data frame will be suffixed with a string `marker` and the applied functions.
@@ -798,8 +799,8 @@ end
 
 Compute the skewness and kurtosis for each function in `transformations` applied to a data
 frame `df` or grouped data frame `gd`, and return a dictionary of transformed columns in a
-(grouped) data frame and of any resulting skewness and kurtosis whose ratios are within the
-range of ±`normal_ratio`.
+data frame or grouped data frames, and of any resulting skewness and kurtosis whose ratios
+are within the range of ±`normal_ratio`.
 
 If `transformation` is not of type `Vector{Function}`, then it is a collection of function
 and extremum pairs. The extremum is the minimum or maximum value of `df` that corresponds
@@ -1011,42 +1012,11 @@ end
 function _label_findings(main_dict, other_dict; marker="__")
     gdf_altered = other_dict["transformed gdf"]
     transformations = _get_applied_function_names(gdf_altered; marker)
-    if isa(gdf_altered, AbstractDataFrame)
-        original_colnames = _get_original.(names(gdf_altered); marker)
-    else
-        originals = _get_original.(
-            string(colname) for colname in valuecols(gdf_altered); marker
-        )
-        original_colnames = _concat_groupnames(gdf_altered, originals)
-    end
+    original_colnames = _get_original_colnames(gdf_altered; marker)
     main_dict["normalized"][transformations] = _label.(
         other_dict["skewness and kurtosis"], original_colnames
     )
     return main_dict["normalized"][transformations]
-end
-
-function _concat_groupnames(gd, colnames)
-    new_names = []
-    for var in colnames
-        for group in keys(gd)
-            grouping = chop(string(group), head=11)
-            push!(new_names,"$var ($grouping)")
-        end
-    end
-
-    return new_names
-end
-
-function _store_transformed!(main_dict, key, value::AbstractDataFrame)
-    main_dict[key] = hcat(main_dict[key], value)
-end
-
-function _store_transformed!(main_dict, key, value)
-    if isempty(value)
-        return append!(main_dict[key], value)
-    else
-        return push!(main_dict[key], value)
-    end
 end
 
 function _get_applied_function_names(df::AbstractDataFrame; marker="__")
@@ -1092,11 +1062,44 @@ function _make_listing(phrase, split_on=" ")
     end
 end
 
+function _get_original_colnames(gdf::AbstractDataFrame; marker="__")
+    return _get_original.(names(gdf); marker)
+end
+
+function _get_original_colnames(gdf; marker="__")
+    originals = _get_original.(string(var) for var in valuecols(gdf); marker)
+    return _concat_groupnames(gdf, originals)
+end
+
+function _concat_groupnames(gd, colnames)
+    new_names = []
+    for varname in colnames
+        for group in keys(gd)
+            grouping = chop(string(group), head=length("GroupKey: ("))
+            push!(new_names,"$varname ($grouping)")
+        end
+    end
+
+    return new_names
+end
+
 function _label(prelim, tag)
     entry = (
         name=tag,
     )
     return merge(entry, prelim)
+end
+
+function _store_transformed!(main_dict, key, value::AbstractDataFrame)
+    main_dict[key] = hcat(main_dict[key], value)
+end
+
+function _store_transformed!(main_dict, key, value)
+    if isempty(value)
+        return append!(main_dict[key], value)
+    else
+        return push!(main_dict[key], value)
+    end
 end
 
 function _merge_results!(main_dict, other_dict)
@@ -1113,7 +1116,7 @@ end
 """
     tabular_to_dataframe(path, sheet="") -> AbstractDataFrame
 
-Load tabular data from a string `path`, and converts it into a (grouped) data frame.
+Load tabular data from a string `path`, and converts it into a data frame.
 
 Acceptable file extensions are .csv, .dta, .ods, .sav, .xls, and .xlsx. If `path` ends in
 .ods, .xls, or .xlsx, the worksheet with the name `sheet` is converted.
@@ -1138,7 +1141,7 @@ end
 """
     string_to_float!(df) -> AbstractDataFrame
 
-Convert columns of type `String` to `Float64` in a (grouped) data frame `gdf`.
+Convert columns of type `String` to `Float64` in a data frame `df`.
 
 If a string cannot be parsed to `Float64`, an error is raised.
 
@@ -1218,24 +1221,19 @@ end
 function print_skewness_kurtosis(gd)
     gd_new = combine(gd, valuecols(gd) .=> x -> [skewness(x), kurtosis(x),]; ungroup=false)
     for group in keys(gd_new)
-        grouping = chop(string(group), head=11)
-        for colname in valuecols(gd_new)
-            var = chop(string(colname), tail=length("_function"))
-            tag = (
-                name="$var ($grouping)",
-            )
-            skews_and_kurts = gd_new[group][colname]
-            tagged = merge(tag, skews_and_kurts...)
+        for var in valuecols(gd_new)
+            tagged = _describe_var(gd_new, group, var)
             _print_summary(tagged)
         end
     end
 end
 
-function _print_independent(df)
-    for colname in names(df)
-        tagged = _describe_var(df[colname], colname)
-        _print_summary(tagged)
-    end
+function _print_dependent(df)
+    var = names(df)[1]
+    var2 = names(df)[2]
+    difference = df[var] .- df[var2]
+    tagged = _describe_var(difference, "$(var)_minus_$(var2)")
+    _print_summary(tagged)
 end
 
 function _describe_var(col, colname)
@@ -1245,6 +1243,16 @@ function _describe_var(col, colname)
         name=colname,
     )
     return merge(tag, skew, kurt)
+end
+
+function _describe_var(gd, group_column, value_column)
+    varname = chop(string(value_column), tail=length("_function"))
+    grouping = chop(string(group_column), head=length("GroupKey: ("))
+    tag = (
+        name="$varname ($grouping)",
+    )
+    skews_and_kurts = gd[group_column][value_column]
+    return merge(tag, skews_and_kurts...)
 end
 
 function _print_summary(factor::NamedTuple)
@@ -1262,12 +1270,11 @@ function _print_summary(factor::NamedTuple)
     )
 end
 
-function _print_dependent(df)
-    var = names(df)[1]
-    var2 = names(df)[2]
-    difference = df[var] .- df[var2]
-    tagged = _describe_var(difference, "$(var)_minus_$(var2)")
-    _print_summary(tagged)
+function _print_independent(df)
+    for colname in names(df)
+        tagged = _describe_var(df[colname], colname)
+        _print_summary(tagged)
+    end
 end
 
 """
@@ -1306,8 +1313,8 @@ Export normal data from a dictionary `findings` to a csv file in a string `path`
 If `path` already exists (i.e., a file has the same name), then the file will be
 overwritten. Otherwise, a new file will be created.
 
-If `dependent` is `true`, then a column of zeros will be created in the csv for dependent
-testing.
+If `dependent` is `true`, then a column of zeros will also be created in the csv for
+dependent testing.
 
 If there are any `NaN`, they will be replaced with `missing` in the csv.
 """
@@ -1325,7 +1332,7 @@ function normal_to_csv(path, findings; dependent::Bool=false)
     if isa(normal_data, AbstractDataFrame)
         df_normal = normal_data
     else
-        df_normal = _flatten_grouped_data_frames(normal_data)
+        df_normal = _flatten_grouped_dataframes(normal_data)
     end
 
     if dependent
@@ -1336,7 +1343,7 @@ function normal_to_csv(path, findings; dependent::Bool=false)
     return nothing
 end
 
-function _flatten_grouped_data_frames(gdfs)
+function _flatten_grouped_dataframes(gdfs)
     df_new = DataFrame()
     df_new = _store_groupcols(df_new, gdfs)
     df_new = _store_valuecols(df_new, gdfs)
