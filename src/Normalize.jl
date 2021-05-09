@@ -938,7 +938,7 @@ function apply(func, gd; marker="__")
     end
     gd_new = _rename_valuecols(gd, "-+"; marker="")
     gd_new = _rename_valuecols(
-        select(gd_new, valuecols(gd_new) .=> ByRow(func), ungroup=false), func
+        select(gd_new, valuecols(gd_new) .=> ByRow(func); ungroup=false), func; marker
     )
     return Dict(
         "skewness and kurtosis" => _get_skewness_kurtosis(gd_new),
@@ -959,7 +959,8 @@ function apply(func, gd, func_other_arg; marker="__")
             valuecols(gd_new) .=> ByRow(x -> func(x, func_other_arg));
             ungroup=false,
         ),
-        func,
+        func;
+        marker
     )
     return Dict(
         "skewness and kurtosis" => _get_skewness_kurtosis(gd_new),
@@ -968,7 +969,7 @@ function apply(func, gd, func_other_arg; marker="__")
 end
 
 function _rename_with(fragment, name; marker="__")
-    old_name = _get_original(name)
+    old_name = _get_original(name; marker)
     return "$(old_name)$(marker)$(fragment)"
 end
 
@@ -1092,6 +1093,7 @@ end
 
 function _store_transformed!(main_dict, key, value::AbstractDataFrame)
     main_dict[key] = hcat(main_dict[key], value)
+    return main_dict[key]
 end
 
 function _store_transformed!(main_dict, key, value)
@@ -1314,7 +1316,7 @@ If `path` already exists (i.e., a file has the same name), then the file will be
 overwritten. Otherwise, a new file will be created.
 
 If `dependent` is `true`, then a column of zeros will also be created in the csv for
-dependent testing.
+dependent testing of data with only one group and two dependent variables.
 
 If there are any `NaN`, they will be replaced with `missing` in the csv.
 """
@@ -1331,13 +1333,12 @@ function normal_to_csv(path, findings; dependent::Bool=false)
 
     if isa(normal_data, AbstractDataFrame)
         df_normal = normal_data
+        if dependent
+            df_zero = DataFrame(["for_dependent_test" => zeros(nrow(df_normal))])
+            df_normal = hcat(df_normal, df_zero)
+        end
     else
         df_normal = _flatten_grouped_dataframes(normal_data)
-    end
-
-    if dependent
-        df_zero = DataFrame(["for_dependent_test" => zeros(nrow(df_normal))])
-        df_normal = hcat(df_normal, df_zero)
     end
     CSV.write(path, df_normal, transform=(col, val) -> _nan_to(missing, val))
     return nothing
