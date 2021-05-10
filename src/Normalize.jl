@@ -43,8 +43,9 @@ A dictionary is returned with the following key-value pairs:
 function normalize(gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__")
     if dependent
         if isa(gdf, AbstractDataFrame) && ncol(gdf) === 2
-            difference = _diff(gdf)
-            gdf = DataFrame(["$(var2)_minus_$(var)" => difference])
+            var = names(gdf)[1]
+            var2 = names(gdf)[2]
+            gdf = DataFrame(["$(var2)_minus_$(var)" => gdf[var2] .- gdf[var]])
         else
             println(
                 "There can only be one group and two dependent variables to normalize."
@@ -58,12 +59,6 @@ function normalize(gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__"
     end
     transformations = get_skew_transformations(gdf; normal_ratio)
     return record_all(gdf, transformations; normal_ratio, marker)
-end
-
-function _diff(df)
-    var = names(df)[1]
-    var2 = names(df)[2]
-    return df[var2] .- df[var]
 end
 
 """
@@ -1235,7 +1230,9 @@ function print_skewness_kurtosis(gd)
 end
 
 function _print_dependent(df)
-    difference = _diff(df)
+    var = names(df)[1]
+    var2 = names(df)[2]
+    difference = df[var2] .- df[var]
     tagged = _describe_var(difference, "$(var2)_minus_$(var)")
     _print_summary(tagged)
 end
