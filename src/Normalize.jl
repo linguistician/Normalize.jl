@@ -43,9 +43,8 @@ A dictionary is returned with the following key-value pairs:
 function normalize(gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__")
     if dependent
         if isa(gdf, AbstractDataFrame) && ncol(gdf) === 2
-            var = names(gdf)[1]
-            var2 = names(gdf)[2]
-            gdf = DataFrame(["$(var)_minus_$(var2)" => gdf[var] .- gdf[var2]])
+            difference = _diff(gdf)
+            gdf = DataFrame(["$(var2)_minus_$(var)" => difference])
         else
             println(
                 "There can only be one group and two dependent variables to normalize."
@@ -59,6 +58,12 @@ function normalize(gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__"
     end
     transformations = get_skew_transformations(gdf; normal_ratio)
     return record_all(gdf, transformations; normal_ratio, marker)
+end
+
+function _diff(df)
+    var = names(df)[1]
+    var2 = names(df)[2]
+    return df[var2] .- df[var]
 end
 
 """
@@ -105,9 +110,9 @@ end
 function _get_skewness_kurtosis(gd)
     gd_new = combine(gd, valuecols(gd) => x -> [skewness(x), kurtosis(x),]; ungroup=false)
     return [
-        merge(gd_new[group][colname]...)
+        merge(gd_new[group][var]...)
         for group in keys(gd_new)
-            for colname in valuecols(gd_new)
+            for var in valuecols(gd_new)
     ]
 end
 
@@ -140,8 +145,7 @@ Computes skewness statistic of a collection `col`, rounded to `round_to` digits.
 function skewness_stat(col, round_to=3)
     if any(isnan, col)
         return round(
-            SciPy.stats.skew(col, bias=false, nan_policy="omit")[1];
-            digits=round_to,
+            SciPy.stats.skew(col, bias=false, nan_policy="omit")[1]; digits=round_to
         )
     else
         return round(SciPy.stats.skew(col, bias=false, nan_policy="omit"); digits=round_to)
@@ -991,8 +995,8 @@ end
 
 function _rename_valuecols(gd, fragment; marker="__")
     grouping = groupcols(gd)
-    new_names = [name => _rename_with(fragment, string(name); marker)
-                 for name in valuecols(gd)]
+    new_names = [var => _rename_with(fragment, string(var); marker)
+                 for var in valuecols(gd)]
     df_altered = rename(DataFrame(gd), new_names)
     return groupby(df_altered, grouping)
 end
@@ -1231,10 +1235,8 @@ function print_skewness_kurtosis(gd)
 end
 
 function _print_dependent(df)
-    var = names(df)[1]
-    var2 = names(df)[2]
-    difference = df[var] .- df[var2]
-    tagged = _describe_var(difference, "$(var)_minus_$(var2)")
+    difference = _diff(df)
+    tagged = _describe_var(difference, "$(var2)_minus_$(var)")
     _print_summary(tagged)
 end
 
@@ -1364,8 +1366,8 @@ end
 function _store_valuecols(df, gdfs)
     for grouped in gdfs
         df_convert = DataFrame(grouped)
-        for colname in valuecols(grouped)
-            df = hcat(df, df_convert[[colname]])
+        for var in valuecols(grouped)
+            df = hcat(df, df_convert[[var]])
         end
     end
 
