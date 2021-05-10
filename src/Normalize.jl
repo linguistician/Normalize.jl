@@ -960,7 +960,7 @@ function apply(func, gd, func_other_arg; marker="__")
             ungroup=false,
         ),
         func;
-        marker
+        marker,
     )
     return Dict(
         "skewness and kurtosis" => _get_skewness_kurtosis(gd_new),
@@ -999,7 +999,7 @@ end
 
 function _update_normal!(main_dict, other_dict; normal_ratio::Real=2, marker="__")
     if are_normal(other_dict["skewness and kurtosis"]; normal_ratio)
-        _label_findings(main_dict, other_dict; marker)
+        _label_findings!(main_dict, other_dict; marker)
         _store_transformed!(
             main_dict, "normal gdf", other_dict["transformed gdf"]
         )
@@ -1010,7 +1010,7 @@ function _update_normal!(main_dict, other_dict; normal_ratio::Real=2, marker="__
     return nothing
 end
 
-function _label_findings(main_dict, other_dict; marker="__")
+function _label_findings!(main_dict, other_dict; marker="__")
     gdf_altered = other_dict["transformed gdf"]
     transformations = _get_applied_function_names(gdf_altered; marker)
     original_colnames = _get_original_colnames(gdf_altered; marker)
@@ -1077,7 +1077,7 @@ function _concat_groupnames(gd, colnames)
     for varname in colnames
         for group in keys(gd)
             grouping = chop(string(group), head=length("GroupKey: ("))
-            push!(new_names,"$varname ($grouping)")
+            push!(new_names, "$varname ($grouping)")
         end
     end
 
