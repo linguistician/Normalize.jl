@@ -15,7 +15,7 @@ export get_skew_transformations, get_stretch_skew_transformations
 export kurtosis, kurtosis_error, kurtosis_stat, kurtosis_variance
 export print_findings, print_skewness_kurtosis
 export skewness, skewness_error, skewness_stat, skewness_variance
-export replace_missing!, string_to_float!
+export replace_missing!, sheetcols_to_float!
 export normal_to_csv, tabular_to_dataframe
 
 """
@@ -43,9 +43,8 @@ A dictionary is returned with the following key-value pairs:
 function normalize(gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__")
     if dependent
         if isa(gdf, AbstractDataFrame) && ncol(gdf) === 2
-            var = names(gdf)[1]
-            var2 = names(gdf)[2]
-            gdf = DataFrame(["$(var2)_minus_$(var)" => gdf[var2] .- gdf[var]])
+            difference = _diff_pair(gdf)
+            gdf = DataFrame([difference])
         else
             println(
                 "There can only be one group and two dependent variables to normalize."
@@ -59,6 +58,12 @@ function normalize(gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__"
     end
     transformations = get_skew_transformations(gdf; normal_ratio)
     return record_all(gdf, transformations; normal_ratio, marker)
+end
+
+function _diff_pair(df)
+    var = names(df)[1]
+    var2 = names(df)[2]
+    return "$(var2)_minus_$(var)" => df[var2] .- df[var]
 end
 
 """
@@ -1140,9 +1145,11 @@ function tabular_to_dataframe(path, sheet="")
 end
 
 """
-    string_to_float!(df) -> AbstractDataFrame
+    sheetcols_to_float!(df; blank_to::Real) -> AbstractDataFrame
 
-Convert columns of type `String` to `Float64` in a data frame `df`.
+Convert columns of element type `String` or `Any` to `Float64` in a data frame `df`.
+
+`df` originated from data in Excel or OpenDocument Spreadsheet.
 
 If a string cannot be parsed to `Float64`, an error is raised.
 
@@ -1156,7 +1163,7 @@ julia> df = DataFrame(a=1:2, b=["4", "5.2"])
    1 │     1  4
    2 │     2  5.2
 
-julia> string_to_float!(df)
+julia> sheetcols_to_float!(df)
 2×2 DataFrame
  Row │ a      b
      │ Int64  Float64
@@ -1165,12 +1172,18 @@ julia> string_to_float!(df)
    2 │     2      5.2
 ```
 """
-function string_to_float!(df)
+function sheetcols_to_float!(df; blank_to::Real)
     for colname in names(df)
         col = df[colname]
-        if eltype(col) === String
-            replace!(col, " " => "NaN")
-            df[colname] = parse.(Float64, col)
+        if eltype(col) === String || eltype(col) === Any
+            nonblanks = filter(cell -> cell !== " ", col)
+            if eltype(nonblanks) === String
+                replace!(col, " " => "$(blank_to)")
+                df[colname] = parse.(Float64, col)
+            else
+                replace!(col, " " => blank_to)
+                df[colname] = convert(Vector{Float64}, col)
+            end
         end
     end
 
@@ -1230,19 +1243,17 @@ function print_skewness_kurtosis(gd)
 end
 
 function _print_dependent(df)
-    var = names(df)[1]
-    var2 = names(df)[2]
-    difference = df[var2] .- df[var]
-    tagged = _describe_var(difference, "$(var2)_minus_$(var)")
+    difference = _diff_pair(df)
+    tagged = _describe_var(difference.first, difference.second)
     _print_summary(tagged)
 end
 
-function _describe_var(col, colname)
-    skew = skewness(col)
-    kurt = kurtosis(col)
+function _describe_var(colname, col)
     tag = (
         name=colname,
     )
+    skew = skewness(col)
+    kurt = kurtosis(col)
     return merge(tag, skew, kurt)
 end
 
@@ -1273,7 +1284,7 @@ end
 
 function _print_independent(df)
     for colname in names(df)
-        tagged = _describe_var(df[colname], colname)
+        tagged = _describe_var(colname, df[colname])
         _print_summary(tagged)
     end
 end
