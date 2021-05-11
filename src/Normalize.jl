@@ -1149,9 +1149,9 @@ end
 
 Convert columns of element type `String` or `Any` to `Float64` in a data frame `df`.
 
-`df` originated from data in Excel or OpenDocument Spreadsheet.
+`df` originated from data in a CSV, an Excel, or OpenDocument Spreadsheet file.
 
-If a string cannot be parsed to `Float64`, an error is raised.
+If a value cannot be converted to `Float64`, an error is raised.
 
 # Examples
 ```jldoctest
