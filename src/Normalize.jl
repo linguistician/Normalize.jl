@@ -1147,7 +1147,8 @@ end
 """
     sheetcols_to_float!(df; blank_to::Real) -> AbstractDataFrame
 
-Convert columns of element type `String` or `Any` to `Float64` in a data frame `df`.
+Convert columns of element type `String` or `Any` to `Float64` in a data frame `df`. Blank
+values (i.e., " ") will be replaced with `blank_to` before converting to `Float64`.
 
 `df` originated from data in a CSV, an Excel, or OpenDocument Spreadsheet file.
 
