@@ -29,7 +29,7 @@ $ cd ..
 
 $ julia
 
-julia> import Pkg; Pkg.activate("Normalize")
+julia> import Pkg; Pkg.activate("Normalize.jl")
 
 julia> Pkg.add("IJulia")
 
