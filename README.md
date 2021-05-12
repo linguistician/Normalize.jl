@@ -49,7 +49,7 @@ Click the code cells, and click Run.
 If you want only the module, add the package in Julia. It is recommended to create a project environment beforehand.
 
 ```
-julia> import Pkg; Pkg.activate("project name")
+julia> import Pkg; Pkg.activate("<project name>")
 
 julia> Pkg.add(url="https://github.com/muhadamanhuri/Normalize.jl")
 
