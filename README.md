@@ -29,6 +29,10 @@ $ cd ..
 
 $ julia
 
+# If downloaded through Code
+julia> import Pkg; Pkg.activate("Normalize.jl-main")
+
+# If downloaded through Git
 julia> import Pkg; Pkg.activate("Normalize.jl")
 
 julia> Pkg.add("IJulia")
@@ -42,14 +46,20 @@ Click the code cells, and click Run.
 
 ### Module
 
-If you want only the module, follow the download options through Code or Git above, or add the package in Julia. It is recommended to create a project environment beforehand.
+If you want only the module, add the package in Julia. It is recommended to create a project environment beforehand.
 
 ```
-julia> import Pkg; Pkg.activate("projectname")
+julia> import Pkg; Pkg.activate("project name")
 
 julia> Pkg.add(url="https://github.com/muhadamanhuri/Normalize.jl")
 
 julia> using Normalize
+
+# Excluding the first line, displays all function names in the module.
+julia> for name in names(Normalize); println(name); end
+
+# Gets info of a function.
+julia> ?<function name>
 ```
 
 ## Example
