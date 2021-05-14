@@ -30,7 +30,7 @@ If `dependent` is `true`, then the difference between the columns of `gdf` will 
 normalized.
 
 Functions will be separately applied to `gdf`, and the column names of the transformed
-data frame will be suffixed with a string `marker` and the applied functions.
+(grouped) data frame will be suffixed with a string `marker` and the applied functions.
 
 A dictionary is returned with the following key-value pairs:
 - `"normalized"` => a dictionary of a collection value of named tuples containing
@@ -140,7 +140,7 @@ end
 """
     skewness_stat(col, round_to=3)
 
-Computes skewness statistic of a collection `col`, rounded to `round_to` digits.
+Compute the skewness statistic of a collection `col`, rounded to `round_to` digits.
 """
 function skewness_stat(col, round_to=3)
     if any(isnan, col)
@@ -282,7 +282,8 @@ The named tuples in `skew_kurt_ratios` have the following fields:
 """
 function are_normal(skew_kurt_ratios; normal_ratio::Real=2)
     return all(
-        i -> is_normal(i.skewness_ratio, i.kurtosis_ratio; normal_ratio), skew_kurt_ratios
+        i -> is_normal(i[:skewness_ratio], i[:kurtosis_ratio]; normal_ratio),
+        skew_kurt_ratios,
     )
 end
 
@@ -310,7 +311,7 @@ function are_positive_skew(skewnesses)
 end
 
 function _contains(func, skewnesses)
-    return any(func, var.skewness_ratio for var in skewnesses)
+    return any(i -> func(i[:skewness_ratio]), skewnesses)
 end
 
 function _contains(func, df::AbstractDataFrame)
@@ -515,7 +516,6 @@ end
 Compute ``\\frac{1}{x^2 + 1 - min^2}``.
 
 Throw `DivideError` if x^2 + 1 - min^2 is 0, and ErrorException if `min > x`.
-    .
 """
 function square_then_add_then_invert(x::Real, min::Real)
     if min > x
@@ -903,9 +903,10 @@ transformed (grouped) data frame will be suffixed with a string `marker` and the
 functions.
 
 A named tuple is returned with the following fields:
-- `skewness_and_kurtosis` => a named tuple with the fields `skewness_stat`,`skewness_error`,
-    `skewness_ratio`, `kurtosis_stat`, `kurtosis_error`, and `kurtosis_ratio`
-- `transformed_gdf` => a transformed (grouped) data frame
+- `skewness_and_kurtosis`: a named tuple with the fields `skewness_stat`,
+    `skewness_error`, `skewness_ratio`, `kurtosis_stat`, `kurtosis_error`, and
+    `kurtosis_ratio`
+- `transformed_gdf`: a transformed (grouped) data frame
 """
 function apply(func, df::AbstractDataFrame; marker="__")
     if length(marker) < 2 || !all(ispunct, marker)
@@ -985,11 +986,11 @@ function _get_original(colname; marker="__")
 end
 
 function _find_original_end(colname; marker="__")
-    if length(marker) < 2
-        return length(colname)
-    elseif Base.contains(colname, "-+_")
+    if Base.contains(colname, "-+_")
         starting = findlast("-+_", colname)[1]
         return starting - 1
+    elseif length(marker) < 2 || !Base.contains(colname, marker)
+        return length(colname)
     else
         starting = findfirst(marker, colname)[1]
         return starting - 1
@@ -1098,37 +1099,37 @@ function _label(prelim, tag)
     return merge(title, prelim)
 end
 
-function _store_transformed!(main_dict, key, value::AbstractDataFrame)
-    main_dict[key] = hcat(main_dict[key], value)
-    return main_dict[key]
+function _store_transformed!(entries, key, value::AbstractDataFrame)
+    entries[key] = hcat(entries[key], value)
+    return entries[key]
 end
 
-function _store_transformed!(main_dict, key, value)
+function _store_transformed!(entries, key, value)
     if isempty(value)
-        return append!(main_dict[key], value)
+        return append!(entries[key], value)
     else
-        return push!(main_dict[key], value)
+        return push!(entries[key], value)
     end
 end
 
-function _merge_results!(main_dict, other_dict)
-    merge!(main_dict["normalized"], other_dict["normalized"])
+function _merge_results!(entries, other)
+    merge!(entries["normalized"], other["normalized"])
     _store_transformed!(
-        main_dict, "normal gdf", other_dict["normal gdf"]
+        entries, "normal gdf", other["normal gdf"]
     )
     _store_transformed!(
-        main_dict, "nonnormal gdf", other_dict["nonnormal gdf"]
+        entries, "nonnormal gdf", other["nonnormal gdf"]
     )
-    return main_dict
+    return entries
 end
 
 """
     tabular_to_dataframe(path, sheet="") -> AbstractDataFrame
 
-Load tabular data from a string `path`, and converts it into a data frame.
+Load tabular data from a string `path`, and converts it to a data frame.
 
 Acceptable file extensions are .csv, .dta, .ods, .sav, .xls, and .xlsx. If `path` ends in
-.ods, .xls, or .xlsx, the worksheet with the name `sheet` is converted.
+.ods, .xls, or .xlsx, the worksheet that is named `sheet` is converted.
 """
 function tabular_to_dataframe(path, sheet="")
     if endswith(path, ".csv")
@@ -1151,7 +1152,7 @@ end
     sheetcols_to_float!(df; blank_to::Real) -> AbstractDataFrame
 
 Convert columns of element type `String` or `Any` to `Float64` in a data frame `df`. Blank
-values (i.e., " ") will be replaced with `blank_to` before converting to `Float64`.
+values (i.e., " ") will be replaced with `blank_to` before conversion.
 
 `df` originated from data in a CSV, an Excel, or OpenDocument Spreadsheet file.
 
@@ -1324,15 +1325,15 @@ end
 """
     normal_to_csv(path, findings; dependent::Bool=false)
 
-Export normal data from a dictionary `findings` to a csv file in a string `path`.
+Export normal data from a dictionary `findings` to a CSV file in a string `path`.
 
 If `path` already exists (i.e., a file has the same name), then the file will be
 overwritten. Otherwise, a new file will be created.
 
-If `dependent` is `true`, then a column of zeros will also be created in the csv for
+If `dependent` is `true`, then a column of zeros will also be created in the CSV file for
 dependent testing of data with only one group and two dependent variables.
 
-If there are any `NaN`, they will be replaced with `missing` in the csv.
+If there are any `NaN`, they will be replaced with `missing` in the CSV file.
 """
 function normal_to_csv(path, findings; dependent::Bool=false)
     if !endswith(path, ".csv")
