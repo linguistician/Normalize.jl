@@ -20,7 +20,7 @@ export normal_to_csv, tabular_to_dataframe
 
 """
     normalize(
-        gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__"
+        gdf; normal_ratio::Real=2, dependent::Bool=false, marker::AbstractString="__"
     ) -> AbstractDict
 
 Normalize a (grouped) data frame `gdf` for its skewness and kurtosis ratios to be within
@@ -40,9 +40,11 @@ A dictionary is returned with the following key-value pairs:
 - `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
     are nonnormal
 """
-function normalize(gdf; normal_ratio::Real=2, dependent::Bool=false, marker="__")
+function normalize(
+    gdf; normal_ratio::Real=2, dependent::Bool=false, marker::AbstractString="__"
+)
     if dependent
-        if isa(gdf, AbstractDataFrame) && ncol(gdf) === 2
+        if gdf isa AbstractDataFrame && ncol(gdf) === 2
             difference = _diff_pair(gdf)
             gdf = DataFrame([difference])
         else
@@ -763,7 +765,9 @@ function _cannot_logit(x::Real)
 end
 
 """
-    record_all(gdf, transform_series; normal_ratio::Real=2, marker="__") -> AbstractDict
+    record_all(
+        gdf, transform_series; normal_ratio::Real=2, marker::AbstractString="__"
+    ) -> AbstractDict
 
 Compute the skewness and kurtosis for each function in a dictionary `transform_series`
 applied to a (grouped) data frame `gdf`, and return a dictionary of transformed columns in 
@@ -785,7 +789,9 @@ A dictionary is returned with the following key-value pairs:
 - `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
     are nonnormal
 """
-function record_all(gdf, transform_series; normal_ratio::Real=2, marker="__")
+function record_all(
+    gdf, transform_series; normal_ratio::Real=2, marker::AbstractString="__"
+)
     first_record = record(gdf, transform_series["one arg"]; normal_ratio, marker)
     other_record = record(gdf, transform_series["two args"]; normal_ratio, marker)
     return _merge_results!(first_record, other_record)
@@ -793,18 +799,20 @@ end
 
 """
     record(
-        df::AbstractDataFrame,
-        transformations::Vector{Function};
-        normal_ratio::Real=2,
-        marker="__"
+        df::AbstractDataFrame, transformations::Vector{Function};
+        normal_ratio::Real=2, marker::AbstractString="__"
     ) -> AbstractDict
     record(
-        df::AbstractDataFrame, transformations; normal_ratio::Real=2, marker="__"
+        df::AbstractDataFrame, transformations;
+        normal_ratio::Real=2, marker::AbstractString="__"
     ) -> AbstractDict
     record(
-        gd, transformations::Vector{Function}; normal_ratio::Real=2, marker="__"
+        gd, transformations::Vector{Function};
+        normal_ratio::Real=2, marker::AbstractString="__"
     ) -> AbstractDict
-    record(gd, transformations; normal_ratio::Real=2, marker="__") -> AbstractDict
+    record(
+        gd, transformations; normal_ratio::Real=2, marker::AbstractString="__"
+    ) -> AbstractDict
 
 Compute the skewness and kurtosis for each function in `transformations` applied to `df` or
 grouped data frame `gd`, and return a dictionary of transformed columns in a data frame or
@@ -828,10 +836,8 @@ A dictionary is returned with the following key-value pairs:
     are nonnormal
 """
 function record(
-    df::AbstractDataFrame,
-    transformations::Vector{Function};
-    normal_ratio::Real=2,
-    marker="__"
+    df::AbstractDataFrame, transformations::Vector{Function};
+    normal_ratio::Real=2, marker::AbstractString="__"
 )
     main_record = Dict(
         "normalized" => Dict(),
@@ -846,7 +852,10 @@ function record(
     return main_record
 end
 
-function record(df::AbstractDataFrame, transformations; normal_ratio::Real=2, marker="__")
+function record(
+    df::AbstractDataFrame, transformations;
+    normal_ratio::Real=2, marker::AbstractString="__"
+)
     main_record = Dict(
         "normalized" => Dict(),
         "normal gdf" => DataFrame(),
@@ -860,7 +869,10 @@ function record(df::AbstractDataFrame, transformations; normal_ratio::Real=2, ma
     return main_record
 end
 
-function record(gd, transformations::Vector{Function}; normal_ratio::Real=2, marker="__")
+function record(
+    gd, transformations::Vector{Function};
+    normal_ratio::Real=2, marker::AbstractString="__"
+)
     main_record = Dict(
         "normalized" => Dict(),
         "normal gdf" => [],
@@ -874,7 +886,7 @@ function record(gd, transformations::Vector{Function}; normal_ratio::Real=2, mar
     return main_record
 end
 
-function record(gd, transformations; normal_ratio::Real=2, marker="__")
+function record(gd, transformations; normal_ratio::Real=2, marker::AbstractString="__")
     main_record = Dict(
         "normalized" => Dict(),
         "normal gdf" => [],
@@ -889,8 +901,10 @@ function record(gd, transformations; normal_ratio::Real=2, marker="__")
 end
 
 """
-    apply(func, df::AbstractDataFrame[, func_other_arg]; marker="__") -> NamedTuple
-    apply(func, gd[, func_other_arg]; marker="__") -> NamedTuple
+    apply(
+        func, df::AbstractDataFrame[, func_other_arg]; marker::AbstractString="__"
+    ) -> NamedTuple
+    apply(func, gd[, func_other_arg]; marker::AbstractString="__") -> NamedTuple
 
 Apply a function `func` to `df` or grouped data frame `gd`, and return the skewness,
 kurtosis, and transformed (grouped) data frame.
@@ -908,7 +922,7 @@ A named tuple is returned with the following fields:
     `kurtosis_ratio`
 - `transformed_gdf`: a transformed (grouped) data frame
 """
-function apply(func, df::AbstractDataFrame; marker="__")
+function apply(func, df::AbstractDataFrame; marker::AbstractString="__")
     if length(marker) < 2 || !all(ispunct, marker)
         throw(
             error("marker should contain at least 2 characters, and only punctuations.")
@@ -923,7 +937,7 @@ function apply(func, df::AbstractDataFrame; marker="__")
     )
 end
 
-function apply(func, df::AbstractDataFrame, func_other_arg; marker="__")
+function apply(func, df::AbstractDataFrame, func_other_arg; marker::AbstractString="__")
     if length(marker) < 2 || !all(ispunct, marker)
         throw(
             error("marker should contain at least 2 characters, and only punctuations.")
@@ -938,7 +952,7 @@ function apply(func, df::AbstractDataFrame, func_other_arg; marker="__")
     )
 end
 
-function apply(func, gd; marker="__")
+function apply(func, gd; marker::AbstractString="__")
     if length(marker) < 2 || !all(ispunct, marker)
         throw(
             error("marker should contain at least 2 characters, and only punctuations.")
@@ -954,7 +968,7 @@ function apply(func, gd; marker="__")
     )
 end
 
-function apply(func, gd, func_other_arg; marker="__")
+function apply(func, gd, func_other_arg; marker::AbstractString="__")
     if length(marker) < 2 || !all(ispunct, marker)
         throw(
             error("marker should contain at least 2 characters, and only punctuations.")
@@ -976,16 +990,16 @@ function apply(func, gd, func_other_arg; marker="__")
     )
 end
 
-function _rename_with(fragment, name; marker="__")
+function _rename_with(fragment, name; marker::AbstractString="__")
     old_name = _get_original(name; marker)
     return "$(old_name)$(marker)$(fragment)"
 end
 
-function _get_original(colname; marker="__")
+function _get_original(colname; marker::AbstractString="__")
     return view(colname, 1:_find_original_end(colname; marker))
 end
 
-function _find_original_end(colname; marker="__")
+function _find_original_end(colname; marker::AbstractString="__")
     if Base.contains(colname, "-+_")
         starting = findlast("-+_", colname)[1]
         return starting - 1
@@ -997,7 +1011,7 @@ function _find_original_end(colname; marker="__")
     end
 end
 
-function _rename_valuecols(gd, fragment; marker="__")
+function _rename_valuecols(gd, fragment; marker::AbstractString="__")
     grouping = groupcols(gd)
     new_names = [var => _rename_with(fragment, string(var); marker)
                  for var in valuecols(gd)]
@@ -1005,7 +1019,9 @@ function _rename_valuecols(gd, fragment; marker="__")
     return groupby(df_altered, grouping)
 end
 
-function _update_normal!(entries, applied; normal_ratio::Real=2, marker="__")
+function _update_normal!(
+    entries, applied; normal_ratio::Real=2, marker::AbstractString="__"
+)
     if are_normal(applied[:skewness_and_kurtosis]; normal_ratio)
         _label_findings!(entries, applied; marker)
         _store_transformed!(
@@ -1018,7 +1034,7 @@ function _update_normal!(entries, applied; normal_ratio::Real=2, marker="__")
     return nothing
 end
 
-function _label_findings!(entries, applied; marker="__")
+function _label_findings!(entries, applied; marker::AbstractString="__")
     gdf_altered = applied[:transformed_gdf]
     transformations = _get_applied_function_names(gdf_altered; marker)
     original_colnames = _get_original_colnames(gdf_altered; marker)
@@ -1028,7 +1044,7 @@ function _label_findings!(entries, applied; marker="__")
     return entries["normalized"][transformations]
 end
 
-function _get_applied_function_names(df::AbstractDataFrame; marker="__")
+function _get_applied_function_names(df::AbstractDataFrame; marker::AbstractString="__")
     new_colname = names(df)[1]
     before_marker = _find_original_end(new_colname; marker)
     after_marker = before_marker + length(marker) + 1
@@ -1036,7 +1052,7 @@ function _get_applied_function_names(df::AbstractDataFrame; marker="__")
     return _make_legible(function_names, " then "; marker)
 end
 
-function _get_applied_function_names(gd; marker="__")
+function _get_applied_function_names(gd; marker::AbstractString="__")
     new_colname = string(valuecols(gd)[1])
     before_marker = _find_original_end(new_colname; marker)
     after_marker = before_marker + length(marker) + 1
@@ -1044,7 +1060,7 @@ function _get_applied_function_names(gd; marker="__")
     return _make_legible(function_names, " then "; marker)
 end
 
-function _make_legible(snake_case, split_on=" "; marker="__")
+function _make_legible(snake_case, split_on=" "; marker::AbstractString="__")
     words = _make_phrase(snake_case, "_", " ")
     listable = _make_listing(words, split_on)
     chars = length(marker)
@@ -1071,11 +1087,11 @@ function _make_listing(phrase, split_on=" ")
     end
 end
 
-function _get_original_colnames(gdf::AbstractDataFrame; marker="__")
+function _get_original_colnames(gdf::AbstractDataFrame; marker::AbstractString="__")
     return _get_original.(names(gdf); marker)
 end
 
-function _get_original_colnames(gdf; marker="__")
+function _get_original_colnames(gdf; marker::AbstractString="__")
     originals = _get_original.(string(var) for var in valuecols(gdf); marker)
     return _concat_groupnames(gdf, originals)
 end
@@ -1346,7 +1362,7 @@ function normal_to_csv(path, findings; dependent::Bool=false)
         return nothing
     end
 
-    if isa(normal_data, AbstractDataFrame)
+    if normal_data isa AbstractDataFrame
         df_normal = normal_data
         if dependent
             df_zero = DataFrame(["for_dependent_test" => zeros(nrow(df_normal))])
