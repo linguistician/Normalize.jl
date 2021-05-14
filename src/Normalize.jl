@@ -793,18 +793,23 @@ end
 
 """
     record(
-        df, transformations::Vector{Function}; normal_ratio::Real=2, marker="__"
+        df::AbstractDataFrame,
+        transformations::Vector{Function};
+        normal_ratio::Real=2,
+        marker="__"
     ) -> AbstractDict
-    record(df, transformations; normal_ratio::Real=2, marker="__") -> AbstractDict
+    record(
+        df::AbstractDataFrame, transformations; normal_ratio::Real=2, marker="__"
+    ) -> AbstractDict
     record(
         gd, transformations::Vector{Function}; normal_ratio::Real=2, marker="__"
     ) -> AbstractDict
     record(gd, transformations; normal_ratio::Real=2, marker="__") -> AbstractDict
 
-Compute the skewness and kurtosis for each function in `transformations` applied to a data
-frame `df` or grouped data frame `gd`, and return a dictionary of transformed columns in a
-data frame or grouped data frames, and of any resulting skewness and kurtosis whose ratios
-are within the range of ±`normal_ratio`.
+Compute the skewness and kurtosis for each function in `transformations` applied to `df` or
+grouped data frame `gd`, and return a dictionary of transformed columns in a data frame or
+grouped data frames, and of any resulting skewness and kurtosis whose ratios are within the
+range of ±`normal_ratio`.
 
 If `transformation` is not of type `Vector{Function}`, then it is a collection of function
 and extremum pairs. The extremum is the minimum or maximum value of `df` that corresponds
@@ -884,11 +889,11 @@ function record(gd, transformations; normal_ratio::Real=2, marker="__")
 end
 
 """
-    apply(func, df::AbstractDataFrame[, func_other_arg]; marker="__") -> AbstractDict
-    apply(func, gd[, func_other_arg]; marker="__") -> AbstractDict
+    apply(func, df::AbstractDataFrame[, func_other_arg]; marker="__") -> NamedTuple
+    apply(func, gd[, func_other_arg]; marker="__") -> NamedTuple
 
-Apply a function `func` to a data frame `df` or grouped data frame `gd`, and return the
-skewness, kurtosis, and transformed (grouped) data frame.
+Apply a function `func` to `df` or grouped data frame `gd`, and return the skewness,
+kurtosis, and transformed (grouped) data frame.
 
 `func` is passed up to two arguments. If `func` takes two arguments, then `func_other_arg`
 is the second argument.
@@ -897,12 +902,10 @@ Functions will be separately applied to `df` or `gd`, and the column names of th
 transformed (grouped) data frame will be suffixed with a string `marker` and the applied
 functions.
 
-A dictionary is returned with the following key-value pairs:
-- `"skewness"` => a named tuple with the fields `skewness_stat`,`skewness_error`, and
-    `skewness_ratio`
-- `"kurtosis"` => a named tuple with the fields `kurtosis_stat`, `kurtosis_error`, and
-    `kurtosis_ratio`
-- `"transformed gdf"` => a transformed (grouped) data frame
+A named tuple is returned with the following fields:
+- `skewness_and_kurtosis` => a named tuple with the fields `skewness_stat`,`skewness_error`,
+    `skewness_ratio`, `kurtosis_stat`, `kurtosis_error`, and `kurtosis_ratio`
+- `transformed_gdf` => a transformed (grouped) data frame
 """
 function apply(func, df::AbstractDataFrame; marker="__")
     if length(marker) < 2 || !all(ispunct, marker)
@@ -913,9 +916,9 @@ function apply(func, df::AbstractDataFrame; marker="__")
     df_altered = rename(colname -> _rename_with("-+", colname; marker=""), df)
     select!(df_altered, names(df_altered) .=> ByRow(func))
     rename!(colname -> _rename_with(func, colname; marker), df_altered)
-    return Dict(
-        "skewness and kurtosis" => _get_skewness_kurtosis(df_altered),
-        "transformed gdf" => df_altered,
+    return (
+        skewness_and_kurtosis=_get_skewness_kurtosis(df_altered),
+        transformed_gdf=df_altered,
     )
 end
 
@@ -928,9 +931,9 @@ function apply(func, df::AbstractDataFrame, func_other_arg; marker="__")
     df_altered = rename(colname -> _rename_with("-+", colname; marker=""), df)
     select!(df_altered, names(df_altered) .=> ByRow(x -> func(x, func_other_arg)))
     rename!(colname -> _rename_with(func, colname; marker), df_altered)
-    return Dict(
-        "skewness and kurtosis" => _get_skewness_kurtosis(df_altered),
-        "transformed gdf" => df_altered,
+    return (
+        skewness_and_kurtosis=_get_skewness_kurtosis(df_altered),
+        transformed_gdf=df_altered,
     )
 end
 
@@ -944,9 +947,9 @@ function apply(func, gd; marker="__")
     gd_new = _rename_valuecols(
         select(gd_new, valuecols(gd_new) .=> ByRow(func); ungroup=false), func; marker
     )
-    return Dict(
-        "skewness and kurtosis" => _get_skewness_kurtosis(gd_new),
-        "transformed gdf" => gd_new,
+    return (
+        skewness_and_kurtosis=_get_skewness_kurtosis(gd_new),
+        transformed_gdf=gd_new,
     )
 end
 
@@ -966,9 +969,9 @@ function apply(func, gd, func_other_arg; marker="__")
         func;
         marker,
     )
-    return Dict(
-        "skewness and kurtosis" => _get_skewness_kurtosis(gd_new),
-        "transformed gdf" => gd_new,
+    return (
+        skewness_and_kurtosis=_get_skewness_kurtosis(gd_new),
+        transformed_gdf=gd_new,
     )
 end
 
@@ -982,14 +985,14 @@ function _get_original(colname; marker="__")
 end
 
 function _find_original_end(colname; marker="__")
-    if Base.contains(colname, "-+_")
+    if length(marker) < 2
+        return length(colname)
+    elseif Base.contains(colname, "-+_")
         starting = findlast("-+_", colname)[1]
         return starting - 1
-    elseif Base.contains(colname, marker)
+    else
         starting = findfirst(marker, colname)[1]
         return starting - 1
-    else
-        return length(colname)
     end
 end
 
@@ -1001,27 +1004,27 @@ function _rename_valuecols(gd, fragment; marker="__")
     return groupby(df_altered, grouping)
 end
 
-function _update_normal!(main_dict, other_dict; normal_ratio::Real=2, marker="__")
-    if are_normal(other_dict["skewness and kurtosis"]; normal_ratio)
-        _label_findings!(main_dict, other_dict; marker)
+function _update_normal!(entries, applied; normal_ratio::Real=2, marker="__")
+    if are_normal(applied[:skewness_and_kurtosis]; normal_ratio)
+        _label_findings!(entries, applied; marker)
         _store_transformed!(
-            main_dict, "normal gdf", other_dict["transformed gdf"]
+            entries, "normal gdf", applied[:transformed_gdf]
         )
     else
-        _store_transformed!(main_dict, "nonnormal gdf", other_dict["transformed gdf"])
+        _store_transformed!(entries, "nonnormal gdf", applied[:transformed_gdf])
     end
 
     return nothing
 end
 
-function _label_findings!(main_dict, other_dict; marker="__")
-    gdf_altered = other_dict["transformed gdf"]
+function _label_findings!(entries, applied; marker="__")
+    gdf_altered = applied[:transformed_gdf]
     transformations = _get_applied_function_names(gdf_altered; marker)
     original_colnames = _get_original_colnames(gdf_altered; marker)
-    main_dict["normalized"][transformations] = _label.(
-        other_dict["skewness and kurtosis"], original_colnames
+    entries["normalized"][transformations] = _label.(
+        applied[:skewness_and_kurtosis], original_colnames
     )
-    return main_dict["normalized"][transformations]
+    return entries["normalized"][transformations]
 end
 
 function _get_applied_function_names(df::AbstractDataFrame; marker="__")
@@ -1089,10 +1092,10 @@ function _concat_groupnames(gd, colnames)
 end
 
 function _label(prelim, tag)
-    entry = (
+    title = (
         name=tag,
     )
-    return merge(entry, prelim)
+    return merge(title, prelim)
 end
 
 function _store_transformed!(main_dict, key, value::AbstractDataFrame)
@@ -1212,8 +1215,8 @@ end
     print_skewness_kurtosis(df::AbstractDataFrame; dependent::Bool=false)
     print_skewness_kurtosis(gd)
 
-Print the skewness and kurtosis (statistic, standard error, ratio) of each column in a
-data frame `df` or grouped data frame `gd`.
+Print the skewness and kurtosis (statistic, standard error, ratio) of each column in `df`
+or grouped data frame `gd`.
 
 If `dependent` is `true`, then the skewness and kurtosis of the difference between the
 columns of `df` will be printed.
