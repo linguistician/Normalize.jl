@@ -46,7 +46,7 @@ Click the code cells, and click Run.
 
 ### Module
 
-If you want only the module, add the package in Julia. It is recommended to create a project environment beforehand.
+If you want only the module, add the package in `julia`. It is recommended to create a project environment beforehand.
 
 ```
 julia> import Pkg; Pkg.activate("<project name>")
@@ -147,7 +147,6 @@ Kurtosis Ratio: 1.448
 - Function to normalize multiple times
 - Optimize performance
 - Overflow warning
-- Update tests
 
 ## Contact
 
