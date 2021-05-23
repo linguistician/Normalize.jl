@@ -8,7 +8,7 @@ using SciPy
 using StatFiles
 
 export apply, normalize, record, record_all
-export are_negative_skew, are_positive_skew, is_negative_skew, is_positive_skew
+export are_negative_skews, are_positive_skews, is_negative_skew, is_positive_skew
 export are_nonnormal, are_normal, is_normal
 export get_negative_skew_transformations, get_positive_skew_transformations
 export get_skew_transformations, get_stretch_skew_transformations
@@ -43,23 +43,33 @@ A dictionary is returned with the following key-value pairs:
 function normalize(
     gdf; normal_ratio::Real=2, dependent::Bool=false, marker::AbstractString="__"
 )
-    if dependent
-        if gdf isa AbstractDataFrame && ncol(gdf) === 2
-            difference = _diff_pair(gdf)
-            gdf = DataFrame([difference])
-        else
-            println(
-                "There can only be one group and two dependent variables to normalize."
-            )
-            return Dict(
-                "normalized" => Dict(),
-                "normal gdf" => DataFrame(),
-                "nonnormal gdf" => DataFrame(),
-            )
+    try
+        if dependent
+            if _has_only_one_group_and_two_vars(gdf)
+                difference = _diff_pair(gdf)
+                gdf = DataFrame([difference])
+            else
+                throw(
+                    ArgumentError(
+                        "One group with only two dependent variables can be normalized."
+                    )
+                )
+            end
         end
+        transformations = get_skew_transformations(gdf; normal_ratio)
+        return record_all(gdf, transformations; normal_ratio, marker)
+    catch e
+        println(e)
+        return Dict(
+            "normalized" => Dict(),
+            "normal gdf" => DataFrame(),
+            "nonnormal gdf" => DataFrame(),
+        )
     end
-    transformations = get_skew_transformations(gdf; normal_ratio)
-    return record_all(gdf, transformations; normal_ratio, marker)
+end
+
+function _has_only_one_group_and_two_vars(gdf)
+    return gdf isa AbstractDataFrame && ncol(gdf) === 2
 end
 
 function _diff_pair(df)
@@ -79,17 +89,17 @@ The returned dictionary has the following key-value pairs:
 - `"two args"` => a collection of functions that require two arguments
 """
 function get_skew_transformations(gdf; normal_ratio::Real=2)
-    skews_and_kurts = _get_skewness_kurtosis(gdf)
     transformations = Dict(
         "one arg" => Function[],
         "two args" => Any[],
     )
+    skews_and_kurts = _get_skewness_kurtosis(gdf)
     df_new = DataFrame(gdf)
     if are_nonnormal(skews_and_kurts; normal_ratio)
-        if are_positive_skew(skews_and_kurts)
+        if are_positive_skews(skews_and_kurts)
             positive = get_positive_skew_transformations(df_new)
             mergewith!(append!, transformations, positive)
-        elseif are_negative_skew(skews_and_kurts)
+        elseif are_negative_skews(skews_and_kurts)
             negative = get_negative_skew_transformations(df_new)
             mergewith!(append!, transformations, negative)
         end
@@ -119,7 +129,7 @@ function _get_skewness_kurtosis(gd)
 end
 
 """
-    skewness(col, round_to=3) -> NamedTuple
+    skewness(col, round_to::Integer=3) -> NamedTuple
 
 Compute the skewness of a collection `col`, rounded to `round_to` digits.
 
@@ -128,7 +138,7 @@ The returned named tuple has the following fields:
 - `skewness_error`: skewness standard error
 - `skewness_ratio`: skewness ratio
 """
-function skewness(col, round_to=3)
+function skewness(col, round_to::Integer=3)
     stat = skewness_stat(col, round_to)
     error = skewness_error(col, round_to)
     ratio = round(stat * invert(error); digits=round_to)
@@ -140,11 +150,11 @@ function skewness(col, round_to=3)
 end
 
 """
-    skewness_stat(col, round_to=3)
+    skewness_stat(col, round_to::Integer=3)
 
 Compute the skewness statistic of a collection `col`, rounded to `round_to` digits.
 """
-function skewness_stat(col, round_to=3)
+function skewness_stat(col, round_to::Integer=3)
     if any(isnan, col)
         return round(
             SciPy.stats.skew(col, bias=false, nan_policy="omit")[1]; digits=round_to
@@ -155,11 +165,11 @@ function skewness_stat(col, round_to=3)
 end
 
 """
-    skewness_error(col, round_to=3)
+    skewness_error(col, round_to::Integer=3)
 
 Compute the skewness error of a collection `col`, rounded to `round_to` digits.
 """
-function skewness_error(col, round_to=3)
+function skewness_error(col, round_to::Integer=3)
     variance = skewness_variance(col)
     return round(√variance; digits=round_to)
 end
@@ -174,9 +184,13 @@ It is calculated from the formula:
 ``\\frac{6N(N-1)}{(N-2)(N+1)(N+3)}``
 """
 function skewness_variance(col)
-    omission = count(isnan.(col))
-    N = length(col) - omission
+    N = _length_with_nan_excluded(col)
     return 6 * N * (N - 1) * invert((N - 2) * (N + 1) * (N + 3))
+end
+
+function _length_with_nan_excluded(col)
+    omission = count(isnan.(col))
+    return length(col) - omission
 end
 
 """
@@ -195,7 +209,7 @@ function invert(x::Real)
 end
 
 """
-    kurtosis(col, round_to=3) -> NamedTuple
+    kurtosis(col, round_to::Integer=3) -> NamedTuple
 
 Compute the kurtosis of a collection `col`, rounded to `round_to` digits.
 
@@ -204,7 +218,7 @@ The returned named tuple has the following fields:
 - `kurtosis_error`: kurtosis standard error
 - `kurtosis_ratio`: kurtosis ratio
 """
-function kurtosis(col, round_to=3)
+function kurtosis(col, round_to::Integer=3)
     stat = kurtosis_stat(col, round_to)
     error = kurtosis_error(col, round_to)
     ratio = round(stat * invert(error); digits=round_to)
@@ -216,11 +230,11 @@ function kurtosis(col, round_to=3)
 end
 
 """
-    kurtosis_stat(col, round_to=3)
+    kurtosis_stat(col, round_to::Integer=3)
 
 Compute the kurtosis statistic of a collection `col`, rounded to `round_to` digits.
 """
-function kurtosis_stat(col, round_to=3)
+function kurtosis_stat(col, round_to::Integer=3)
     if any(isnan, col)
         return round(
             SciPy.stats.kurtosis(col, bias=false, nan_policy="omit")[1]; digits=round_to
@@ -233,11 +247,11 @@ function kurtosis_stat(col, round_to=3)
 end
 
 """
-    kurtosis_error(col, round_to=3)
+    kurtosis_error(col, round_to::Integer=3)
 
 Compute the kurtosis error of a collection `col`, rounded to `round_to` digits.
 """
-function kurtosis_error(col, round_to=3)
+function kurtosis_error(col, round_to::Integer=3)
     variance = kurtosis_variance(col)
     return round(√variance; digits=round_to)
 end
@@ -252,8 +266,7 @@ It is calculated from the formula:
 ``\\frac{4(N^2-1)*skewness_variance}{(N-3)(N+5)}``
 """
 function kurtosis_variance(col)
-    omission = count(isnan.(col))
-    N = length(col) - omission
+    N = _length_with_nan_excluded(col)
     skewness_var = skewness_variance(col)
     return 4 * (N^2 - 1) * skewness_var * invert((N - 3) * (N + 5))
 end
@@ -262,7 +275,7 @@ end
     are_nonnormal(skew_kurt_ratios; normal_ratio::Real=2) -> Bool
 
 Return `true` if ratios are not within the range of ±`normal_ratio` in a collection
-`skew_kurt_ratios` containing named tuples, and false otherwise.
+`skew_kurt_ratios` containing named tuples, and `false` otherwise.
 
 The named tuples in `skew_kurt_ratios` have the following fields:
 - `skewness_ratio`: skewness ratio
@@ -276,7 +289,7 @@ end
     are_normal(skew_kurt_ratios; normal_ratio::Real=2) -> Bool
 
 Return `true` if ratios are within the range of ±`normal_ratio` in collections
-`skew_kurt_ratios` containing named tuples, and false otherwise.
+`skew_kurt_ratios` containing named tuples, and `false` otherwise.
 
 The named tuples in `skew_kurt_ratios` have the following fields:
 - `skewness_ratio`: skewness ratio
@@ -293,7 +306,7 @@ end
     is_normal(skewness_ratio::Real, kurtosis_ratio::Real; normal_ratio::Real=2) -> Bool
 
 Return `true` if `skewness_ratio` and `kurtosis_ratio` are within the range of
-±`normal_ratio`, and false otherwise.
+±`normal_ratio`, and `false` otherwise.
 """
 function is_normal(skewness_ratio::Real, kurtosis_ratio::Real; normal_ratio::Real=2)
     return (-normal_ratio ≤ skewness_ratio ≤ normal_ratio) &&
@@ -301,14 +314,14 @@ function is_normal(skewness_ratio::Real, kurtosis_ratio::Real; normal_ratio::Rea
 end
 
 """
-    are_positive_skew(skewnesses) -> Bool
+    are_positive_skews(skewnesses) -> Bool
 
 Return `true` if there are any positive ratios in a collection `skewnesses` containing
 named tuples, and `false` otherwise.
 
 `skewnesses` has named tuples with a field `skewness_ratio`.
 """
-function are_positive_skew(skewnesses)
+function are_positive_skews(skewnesses)
     return _contains(is_positive_skew, skewnesses)
 end
 
@@ -318,12 +331,14 @@ end
 
 function _contains(func, df::AbstractDataFrame)
     filtered_cols = _filter_cols(func, df)
-    return sum(length.(filtered_cols)) > 0
+    filtered_lengths = length.(filtered_cols)
+    return sum(filtered_lengths) > 0
 end
 
 function _contains(func, df::AbstractDataFrame, func_other_arg)
     filtered_cols = _filter_cols(func, df, func_other_arg)
-    return sum(length.(filtered_cols)) > 0
+    filtered_lengths = length.(filtered_cols)
+    return sum(filtered_lengths) > 0
 end
 
 function _filter_cols(func, df)
@@ -420,7 +435,7 @@ Throw error if `min > x`.
 """
 function add_then_square_root(x::Real, min::Real)
     if min > x
-        throw(error("min must be smaller."))
+        throw(ArgumentError("min must be smaller."))
     end
 
     return √(x + 1 - min)
@@ -446,7 +461,7 @@ Throw error if `min > x`.
 """
 function add_then_invert(x::Real, min::Real)
     if min > x
-        throw(error("min must be smaller."))
+        throw(ArgumentError("min must be smaller."))
     end
 
     return invert(x + 1 - min)
@@ -461,7 +476,7 @@ Throw error if `min > x`.
 """
 function add_then_log_base_10(x::Real, min::Real)
     if min > x
-        throw(error("min must be smaller."))
+        throw(ArgumentError("min must be smaller."))
     end
 
     return log_base_10(x + 1 - min)
@@ -491,7 +506,7 @@ Throw error if `min > x`.
 """
 function add_then_natural_log(x::Real, min::Real)
     if min > x
-        throw(error("min must be smaller."))
+        throw(ArgumentError("min must be smaller."))
     end
 
     return natural_log(x + 1 - min)
@@ -521,7 +536,7 @@ Throw `DivideError` if x^2 + 1 - min^2 is 0, and ErrorException if `min > x`.
 """
 function square_then_add_then_invert(x::Real, min::Real)
     if min > x
-        throw(error("min must be smaller."))
+        throw(ArgumentError("min must be smaller."))
     end
 
     return invert(x^2 + 1 - min^2)
@@ -555,7 +570,7 @@ Throw `DomainError` if `x` or `min` is negative, and `ErrorException` if `min > 
 """
 function square_root_then_add_then_invert(x::Real, min::Real)
     if min > x
-        throw(error("min must be smaller."))
+        throw(ArgumentError("min must be smaller."))
     end
 
     return invert(√x + 1 - √min)
@@ -588,12 +603,14 @@ function square_then_invert(x::Real)
 end
 
 """
-    are_negative_skew(skewnesses) -> Bool
+    are_negative_skews(skewnesses) -> Bool
 
 Return `true` if there are any negative ratios in a collection `skewnesses` containing
 named tuples, and `false` otherwise.
+
+`skewnesses` has named tuples with a field `skewness_ratio`.
 """
-function are_negative_skew(skewnesses)
+function are_negative_skews(skewnesses)
     return _contains(is_negative_skew, skewnesses)
 end
 
@@ -669,7 +686,7 @@ Throw error if `max < x`.
 """
 function reflect_then_square_root(x::Real, max::Real)
     if max < x
-        throw(error("max must be greater."))
+        throw(ArgumentError("max must be greater."))
     end
     
     return √(max + 1 - x)
@@ -684,7 +701,7 @@ Throw error if `max < x`.
 """
 function reflect_then_log_base_10(x::Real, max::Real)
     if max < x
-        throw(error("max must be greater."))
+        throw(ArgumentError("max must be greater."))
     end
 
     return log_base_10(max + 1 - x)
@@ -699,14 +716,14 @@ Throw error if `max < x`.
 """
 function reflect_then_invert(x::Real, max::Real)
     if max < x
-        throw(error("max must be greater."))
+        throw(ArgumentError("max must be greater."))
     end
 
     return invert(max + 1 - x)
 end
 
 """
-    get_stretch_transformations(df) -> AbstractDict
+    get_stretch_skew_transformations(df) -> AbstractDict
 
 Return functions to stretch skew for a data frame `df`.
 
@@ -923,9 +940,11 @@ A named tuple is returned with the following fields:
 - `transformed_gdf`: a transformed (grouped) data frame
 """
 function apply(func, df::AbstractDataFrame; marker::AbstractString="__")
-    if length(marker) < 2 || !all(ispunct, marker)
+    if _is_not_long_punctuation(marker)
         throw(
-            error("marker should contain at least 2 characters, and only punctuations.")
+            ArgumentError(
+                "marker should contain at least 2 characters, and only punctuations."
+            )
         )
     end
     df_altered = rename(colname -> _rename_with("-+", colname; marker=""), df)
@@ -938,9 +957,11 @@ function apply(func, df::AbstractDataFrame; marker::AbstractString="__")
 end
 
 function apply(func, df::AbstractDataFrame, func_other_arg; marker::AbstractString="__")
-    if length(marker) < 2 || !all(ispunct, marker)
+    if _is_not_long_punctuation(marker)
         throw(
-            error("marker should contain at least 2 characters, and only punctuations.")
+            ArgumentError(
+                "marker should contain at least 2 characters, and only punctuations."
+            )
         )
     end
     df_altered = rename(colname -> _rename_with("-+", colname; marker=""), df)
@@ -953,15 +974,16 @@ function apply(func, df::AbstractDataFrame, func_other_arg; marker::AbstractStri
 end
 
 function apply(func, gd; marker::AbstractString="__")
-    if length(marker) < 2 || !all(ispunct, marker)
+    if _is_not_long_punctuation(marker)
         throw(
-            error("marker should contain at least 2 characters, and only punctuations.")
+            ArgumentError(
+                "marker should contain at least 2 characters, and only punctuations."
+            )
         )
     end
     gd_new = _rename_valuecols(gd, "-+"; marker="")
-    gd_new = _rename_valuecols(
-        select(gd_new, valuecols(gd_new) .=> ByRow(func); ungroup=false), func; marker
-    )
+    gd_new = select(gd_new, valuecols(gd_new) .=> ByRow(func); ungroup=false)
+    gd_new = _rename_valuecols(gd_new, func; marker)
     return (
         skewness_and_kurtosis=_get_skewness_kurtosis(gd_new),
         transformed_gdf=gd_new,
@@ -969,25 +991,26 @@ function apply(func, gd; marker::AbstractString="__")
 end
 
 function apply(func, gd, func_other_arg; marker::AbstractString="__")
-    if length(marker) < 2 || !all(ispunct, marker)
+    if _is_not_long_punctuation(marker)
         throw(
-            error("marker should contain at least 2 characters, and only punctuations.")
+            ArgumentError(
+                "marker should contain at least 2 characters, and only punctuations."
+            )
         )
     end
     gd_new = _rename_valuecols(gd, "-+"; marker="")
-    gd_new = _rename_valuecols(
-        select(
-            gd_new,
-            valuecols(gd_new) .=> ByRow(x -> func(x, func_other_arg));
-            ungroup=false,
-        ),
-        func;
-        marker,
+    gd_new = select(
+        gd_new, valuecols(gd_new) .=> ByRow(x -> func(x, func_other_arg)); ungroup=false
     )
+    gd_new = _rename_valuecols(gd_new, func; marker)
     return (
         skewness_and_kurtosis=_get_skewness_kurtosis(gd_new),
         transformed_gdf=gd_new,
     )
+end
+
+function _is_not_long_punctuation(separator)
+    return length(separator) < 2 || !all(ispunct, separator)
 end
 
 function _rename_with(fragment, name; marker::AbstractString="__")
@@ -1000,11 +1023,11 @@ function _get_original(colname; marker::AbstractString="__")
 end
 
 function _find_original_end(colname; marker::AbstractString="__")
-    if Base.contains(colname, "-+_")
+    if length(marker) < 2
+        return length(colname)
+    elseif Base.contains(colname, "-+_")
         starting = findlast("-+_", colname)[1]
         return starting - 1
-    elseif length(marker) < 2 || !Base.contains(colname, marker)
-        return length(colname)
     else
         starting = findfirst(marker, colname)[1]
         return starting - 1
@@ -1024,9 +1047,7 @@ function _update_normal!(
 )
     if are_normal(applied[:skewness_and_kurtosis]; normal_ratio)
         _label_findings!(entries, applied; marker)
-        _store_transformed!(
-            entries, "normal gdf", applied[:transformed_gdf]
-        )
+        _store_transformed!(entries, "normal gdf", applied[:transformed_gdf])
     else
         _store_transformed!(entries, "nonnormal gdf", applied[:transformed_gdf])
     end
@@ -1063,14 +1084,8 @@ end
 function _make_legible(snake_case, split_on=" "; marker::AbstractString="__")
     words = _make_phrase(snake_case, "_", " ")
     listable = _make_listing(words, split_on)
-    chars = length(marker)
-    if marker === repeat("_", chars)
-        spaces = repeat(" ", chars)
-    else
-        spaces = marker
-    end
-
-    return _make_phrase(listable, spaces, "; ")
+    extra_chars = _underscore_to_space(marker)
+    return _make_phrase(listable, extra_chars, "; ")
 end
 
 function _make_phrase(fragment, split_on, join_with)
@@ -1084,6 +1099,15 @@ function _make_listing(phrase, split_on=" ")
         return join(words, " and ")
     else
         return join(words, ", ", ", and ")
+    end
+end
+
+function _underscore_to_space(separator)
+    chars = length(separator)
+    if separator === repeat("_", chars)
+        return repeat(" ", chars)
+    else
+        return separator
     end
 end
 
@@ -1130,24 +1154,20 @@ end
 
 function _merge_results!(entries, other)
     merge!(entries["normalized"], other["normalized"])
-    _store_transformed!(
-        entries, "normal gdf", other["normal gdf"]
-    )
-    _store_transformed!(
-        entries, "nonnormal gdf", other["nonnormal gdf"]
-    )
+    _store_transformed!(entries, "normal gdf", other["normal gdf"])
+    _store_transformed!(entries, "nonnormal gdf", other["nonnormal gdf"])
     return entries
 end
 
 """
-    tabular_to_dataframe(path, sheet="") -> AbstractDataFrame
+    tabular_to_dataframe(path, sheet::AbstractString="") -> AbstractDataFrame
 
 Load tabular data from a string `path`, and converts it to a data frame.
 
 Acceptable file extensions are .csv, .dta, .ods, .sav, .xls, and .xlsx. If `path` ends in
 .ods, .xls, or .xlsx, the worksheet that is named `sheet` is converted.
 """
-function tabular_to_dataframe(path, sheet="")
+function tabular_to_dataframe(path, sheet::AbstractString="")
     if endswith(path, ".csv")
         return CSV.read(path, DataFrame)
     elseif endswith(path, r"\.xls.?")
@@ -1196,9 +1216,8 @@ julia> sheetcols_to_float!(df)
 function sheetcols_to_float!(df; blank_to::Real)
     for colname in names(df)
         col = df[colname]
-        if eltype(col) === String || eltype(col) === Any
-            nonblanks = filter(cell -> cell !== " ", col)
-            if eltype(nonblanks) === String
+        if _is_from_csv_excel_or_open_doc(col)
+            if _is_from_csv(col)
                 replace!(col, " " => "$(blank_to)")
                 df[colname] = parse.(Float64, col)
             else
@@ -1211,6 +1230,15 @@ function sheetcols_to_float!(df; blank_to::Real)
     return df
 end
 
+function _is_from_csv_excel_or_open_doc(col)
+    return eltype(col) === String || eltype(col) === Any
+end
+
+function _is_from_csv(col)
+    nonblanks = filter(cell -> cell !== " ", col)
+    return eltype(nonblanks) === String
+end
+
 """
     replace_missing!(df, new_value) -> AbstractDataFrame
 
@@ -1219,13 +1247,17 @@ Replace all occurrences of `missing` with a number `new_value` in a data frame `
 function replace_missing!(df, new_value)
     for colname in names(df)
         col = df[colname]
-        nonmissing = nonmissingtype(eltype(col))
-        if nonmissing <: Real
+        if _is_numbered(col)
             replace!(col, missing => new_value)
         end
     end
 
     return df
+end
+
+function _is_numbered(col)
+    nonmissing = nonmissingtype(eltype(col))
+    return nonmissing <: Real && !<:(nonmissing, Union)
 end
 
 """
@@ -1331,11 +1363,15 @@ function print_findings(findings)
         println("\n")
     end
 
-    if  isempty(findings["nonnormal gdf"]) && isempty(findings["normal gdf"])
+    if _has_no_changes(findings)
         println("No transformations applied, so unable to normalize.")
     elseif isempty(normal)
         println("Transformations applied, but no normal results.")
     end
+end
+
+function _has_no_changes(findings)
+    return isempty(findings["nonnormal gdf"]) && isempty(findings["normal gdf"])
 end
 
 """
@@ -1356,30 +1392,32 @@ function normal_to_csv(path, findings; dependent::Bool=false)
         println("Only a filename ending in .csv can be used.")
         return nothing
     end
-    normal_data = findings["normal gdf"]
-    if isempty(normal_data)
+    df_normal = findings["normal gdf"]
+    if isempty(df_normal)
         println("There is no normal data to export.")
         return nothing
     end
 
-    if normal_data isa AbstractDataFrame
-        df_normal = normal_data
+    if df_normal isa AbstractDataFrame
         if dependent
-            df_zero = DataFrame(["for_dependent_test" => zeros(nrow(df_normal))])
-            df_normal = hcat(df_normal, df_zero)
+            df_normal = _store_zeros(df_normal)
         end
     else
-        df_normal = _flatten_grouped_dataframes(normal_data)
+        df_normal = _flatten_grouped_dataframes(df_normal)
     end
     CSV.write(path, df_normal, transform=(col, val) -> _nan_to(missing, val))
     return nothing
 end
 
+function _store_zeros(df)
+    df_zero = DataFrame(["for_dependent_test" => zeros(nrow(df))])
+    return hcat(df, df_zero)
+end
+
 function _flatten_grouped_dataframes(gdfs)
     df_new = DataFrame()
     df_new = _store_groupcols(df_new, gdfs)
-    df_new = _store_valuecols(df_new, gdfs)
-    return df_new
+    return _store_valuecols(df_new, gdfs)
 end
 
 function _store_groupcols(df, gdfs)
