@@ -1216,7 +1216,7 @@ julia> sheetcols_to_float!(df)
 function sheetcols_to_float!(df; blank_to::Real)
     for colname in names(df)
         col = df[colname]
-        if _is_from_csv_excel_or_open_doc(col)
+        if _is_from_csv_excel_or_opendoc(col)
             if _is_from_csv(col)
                 replace!(col, " " => "$(blank_to)")
                 df[colname] = parse.(Float64, col)
@@ -1230,7 +1230,7 @@ function sheetcols_to_float!(df; blank_to::Real)
     return df
 end
 
-function _is_from_csv_excel_or_open_doc(col)
+function _is_from_csv_excel_or_opendoc(col)
     return eltype(col) === String || eltype(col) === Any
 end
 
