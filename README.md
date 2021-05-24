@@ -29,10 +29,10 @@ $ cd ..
 
 $ julia
 
-# If downloaded through Code
+#If downloaded through Code
 julia> import Pkg; Pkg.activate("Normalize.jl-main")
 
-# If downloaded through Git
+#If downloaded through Git
 julia> import Pkg; Pkg.activate("Normalize.jl")
 
 julia> Pkg.add("IJulia")
@@ -55,10 +55,10 @@ julia> Pkg.add(url="https://github.com/muhadamanhuri/Normalize.jl")
 
 julia> using Normalize
 
-# Excluding the first line, displays all function names in the module.
+#Excluding the first line, displays all function names in the module.
 julia> for name in names(Normalize); println(name); end
 
-# Gets info of a function.
+#Gets info of a function.
 julia> ?<function name>
 ```
 
