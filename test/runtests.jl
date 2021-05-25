@@ -80,7 +80,7 @@ end
     @test_throws DomainError Normalize.square_root_then_add_then_invert(0, -1)
 end
 
-    @testset "stretch transformations" begin
+@testset "stretch transformations" begin
     @test Normalize.logit(3) == Normalize.log_base_10(1.5)
     @test_throws DivideError Normalize.logit(1)
     @test_throws DomainError Normalize.logit(0)
@@ -118,7 +118,7 @@ end
     @test is_negative_skew(0) == false
 
     nt = [(skewness_ratio = 1.67,), (skewness_ratio = -3.8,)]
-@test are_negative_skews(nt)
+    @test are_negative_skews(nt)
 
     nt2 = [(skewness_ratio = -2.7,), (skewness_ratio = 0,)]
     @test are_positive_skews(nt2) == false
@@ -183,7 +183,7 @@ end
     @test isempty(get_positive_skew_transformations(df3)["two args"])
     df4 = DataFrame(a=[0, -1])
     @test Normalize.square_then_add_then_invert ∉
-    get_positive_skew_transformations(df4)["two args"]
+        get_positive_skew_transformations(df4)["two args"]
 
     @test Normalize.square in get_negative_skew_transformations(df)["one arg"]
     @test Normalize.cube in get_negative_skew_transformations(df)["one arg"]
@@ -269,7 +269,7 @@ end
         df_temp = DataFrame(applied[:transformed_gdf])
         for pos in (1, 5)
             if pos == 5
-        quant = applied[:skewness_and_kurtosis][2]
+                quant = applied[:skewness_and_kurtosis][2]
             else
                 quant = applied[:skewness_and_kurtosis][1]
             end
@@ -278,7 +278,7 @@ end
             for s in keys(skew), k in keys(kurt)
                 @test skew[s] == quant[s]
                 @test kurt[k] == quant[k]
-        end
+            end
         end
     end
 
@@ -292,11 +292,11 @@ end
                 quant = applied[:skewness_and_kurtosis][1]
             end
             skew = skewness(df_temp[pos:(pos + 3), 2])
-                kurt = kurtosis(df_temp[pos:(pos + 3), 2])
+            kurt = kurtosis(df_temp[pos:(pos + 3), 2])
             for s in keys(skew), k in keys(kurt)
                 @test skew[s] == quant[s]
                 @test kurt[k] == quant[k]
-        end
+            end
         end
     end
 
@@ -308,7 +308,7 @@ end
     @test_throws ArgumentError apply(Normalize.add_then_invert, df, -0.5; marker="mark")
     @test_throws ArgumentError apply(Normalize.add_then_invert, df, -0.5; marker="~hi?")
 
-            df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
+        df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
     gd = groupby(df2, :group)
     check_skewness_kurtosis(Normalize.cube, gd)
     check_skewness_kurtosis(Normalize.reflect_then_invert, gd, 8)
@@ -351,7 +351,7 @@ end
 
     function check_records(df::AbstractDataFrame, transform_series; normal_ratio=2)
         check_record(df, transform_series["one arg"]; normal_ratio)
-        check_record(df, transform_series["two args"]...; normal_ratio)
+    check_record(df, transform_series["two args"]...; normal_ratio)
     end
 
     function check_record(gd, func; normal_ratio=2)
@@ -396,7 +396,7 @@ end
     end
 
     check_record(df, Normalize.square)
-        check_record(df, Normalize.add_then_invert, -0.5, normal_ratio=3)
+    check_record(df, Normalize.add_then_invert, -0.5, normal_ratio=3)
     functions = Dict(
         "one arg" => Normalize.square,
         "two args" => (Normalize.add_then_invert, -0.5),
