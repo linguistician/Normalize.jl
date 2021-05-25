@@ -34,7 +34,7 @@ end
     @test_throws DomainError Normalize.log_base_10(-1)
 
     @test Normalize.add_then_log_base_10(98, -1) == 2.0
-    @test_throws Exception Normalize.add_then_log_base_10(4, 5)
+    @test_throws ArgumentError Normalize.add_then_log_base_10(4, 5)
 
     @test isone(Normalize.natural_log(exp(1)))
     @test_throws DomainError Normalize.natural_log(0)
@@ -42,27 +42,27 @@ end
     @test_throws DomainError Normalize.natural_log(-1)
 
     @test Normalize.add_then_natural_log(exp(2), 1) == 2.0
-    @test_throws Exception Normalize.add_then_natural_log(0, 1)
+    @test_throws ArgumentError Normalize.add_then_natural_log(0, 1)
 
     @test Normalize.square_root(4) == 2.0
     @test_throws DomainError Normalize.square_root(-1)
 
     @test Normalize.add_then_square_root(3, 0) == 2.0
-    @test_throws Exception Normalize.add_then_square_root(-1, 0)
+    @test_throws ArgumentError Normalize.add_then_square_root(-1, 0)
 
     @test Normalize.invert(-2) == -0.5
     @test_throws DivideError Normalize.invert(0)
     @test_throws DivideError Normalize.invert(0.0)
 
     @test Normalize.add_then_invert(9, 0) == 0.1
-    @test_throws Exception Normalize.add_then_invert(1.22, 1.32)
+    @test_throws ArgumentError Normalize.add_then_invert(1.22, 1.32)
 
     @test Normalize.square_then_invert(2) == 0.25
     @test_throws DivideError Normalize.square_then_invert(0)
     @test_throws DivideError Normalize.square_then_invert(0.0)
     
     @test Normalize.Normalize.square_then_add_then_invert(2, 1) == 0.25
-    @test_throws Exception Normalize.Normalize.square_then_add_then_invert(-2, -1)
+    @test_throws ArgumentError Normalize.Normalize.square_then_add_then_invert(-2, -1)
     @test_throws DivideError Normalize.Normalize.square_then_add_then_invert(0, -1)
     @test_throws DivideError Normalize.Normalize.square_then_add_then_invert(0.0, -1.0)
 
@@ -72,10 +72,10 @@ end
     @test_throws DomainError Normalize.square_root_then_invert(-1)
 
     @test Normalize.add_then_square_root_then_invert(23, -1) == 0.2
-    @test_throws Exception Normalize.add_then_square_root_then_invert(-1, 0)
+    @test_throws ArgumentError Normalize.add_then_square_root_then_invert(-1, 0)
 
     @test Normalize.square_root_then_add_then_invert(4, 1) == 0.5
-    @test_throws Exception Normalize.square_root_then_add_then_invert(3, 4)
+    @test_throws ArgumentError Normalize.square_root_then_add_then_invert(3, 4)
     @test_throws DomainError Normalize.square_root_then_add_then_invert(-1, -2)
     @test_throws DomainError Normalize.square_root_then_add_then_invert(0, -1)
 end
@@ -99,13 +99,13 @@ end
     @test Normalize.antilog(2) == 100.0
 
     @test Normalize.reflect_then_square_root(-1, 2) == 2.0
-    @test_throws Exception Normalize.reflect_then_square_root(1, 0)
+    @test_throws ArgumentError Normalize.reflect_then_square_root(1, 0)
 
     @test isone(Normalize.reflect_then_log_base_10(0, 9))
-    @test_throws Exception Normalize.reflect_then_log_base_10(1, 0)
+    @test_throws ArgumentError Normalize.reflect_then_log_base_10(1, 0)
 
     @test Normalize.reflect_then_invert(0, 1) == 0.5
-    @test_throws Exception Normalize.reflect_then_invert(1, 0)
+    @test_throws ArgumentError Normalize.reflect_then_invert(1, 0)
 end
 
 @testset "check skews" begin
@@ -219,11 +219,24 @@ end
     @test skew.skewness_stat == skewness_stat(df.a)
     @test skew.skewness_error == skewness_error(df.a)
     @test round(√(skewness_variance(df.a)), digits=3) == skew.skewness_error
+    @test_throws ArgumentError skewness(())
+    @test_throws ArgumentError skewness((NaN,))
+    @test_throws ArgumentError skewness_stat([])
+    @test_throws ArgumentError skewness_stat([NaN, NaN])
+    @test_throws ArgumentError skewness_variance((1, 2))
+    @test_throws ArgumentError skewness_variance((1, 2, NaN))
 
     kurt = kurtosis(df.b)
     @test kurt.kurtosis_stat == kurtosis_stat(df.b)
     @test kurt.kurtosis_error == kurtosis_error(df.b)
     @test round(√(kurtosis_variance(df.b)), digits=3) == kurt.kurtosis_error
+    @test_throws ArgumentError kurtosis(Set(()))
+    @test_throws ArgumentError kurtosis(Set((NaN,)))
+    @test_throws ArgumentError kurtosis_stat([])
+    @test_throws ArgumentError kurtosis_stat([NaN, NaN])
+    @test_throws ArgumentError kurtosis_variance((-1, 2))
+    @test_throws ArgumentError kurtosis_variance(Set((1, 0, NaN)))
+    @test_throws ArgumentError kurtosis_variance(Set((1.1, 2.0, 3.67, NaN)))
 end
 
 @testset "apply transformations" begin
@@ -279,7 +292,7 @@ end
                 quant = applied[:skewness_and_kurtosis][1]
             end
             skew = skewness(df_temp[pos:(pos + 3), 2])
-            kurt = kurtosis(df_temp[pos:(pos + 3), 2])
+                kurt = kurtosis(df_temp[pos:(pos + 3), 2])
             for s in keys(skew), k in keys(kurt)
                 @test skew[s] == quant[s]
                 @test kurt[k] == quant[k]
@@ -289,11 +302,11 @@ end
 
     df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13])
     check_skewness_kurtosis(Normalize.square, df)
-    @test_throws Exception apply(Normalize.square, df; marker="-")
-    @test_throws Exception apply(Normalize.square, df; marker="-a")
+    @test_throws ArgumentError apply(Normalize.square, df; marker="-")
+    @test_throws ArgumentError apply(Normalize.square, df; marker="-a")
     check_skewness_kurtosis(Normalize.add_then_invert, df, -0.5)
-    @test_throws Exception apply(Normalize.add_then_invert, df, -0.5; marker="mark")
-    @test_throws Exception apply(Normalize.add_then_invert, df, -0.5; marker="~hi?")
+    @test_throws ArgumentError apply(Normalize.add_then_invert, df, -0.5; marker="mark")
+    @test_throws ArgumentError apply(Normalize.add_then_invert, df, -0.5; marker="~hi?")
 
             df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
     gd = groupby(df2, :group)
@@ -346,7 +359,7 @@ end
         @test !isempty(record1["normalized"])
         @test "$func" in keys(record1["normalized"])
         for (index, nt1) in enumerate(record1["normalized"]["$func"])
-            @test nt1[:name] == "a (group = $index,)"
+            @test nt1[:name] == "a (group = $index)"
             @test haskey(nt1, :skewness_stat)
             @test haskey(nt1, :skewness_error)
             @test haskey(nt1, :skewness_ratio)
@@ -365,7 +378,7 @@ end
         func_name = join(split(no_under, " then "), " and ")
         @test func_name in keys(record1["normalized"])
         for (index, nt1) in enumerate(record1["normalized"][func_name])
-            @test nt1[:name] == "a (group = $index,)"
+            @test nt1[:name] == "a (group = $index)"
             @test haskey(nt1, :skewness_stat)
             @test haskey(nt1, :skewness_error)
             @test haskey(nt1, :skewness_ratio)
@@ -383,7 +396,7 @@ end
     end
 
     check_record(df, Normalize.square)
-    check_record(df, Normalize.add_then_invert, -0.5, normal_ratio=3)
+        check_record(df, Normalize.add_then_invert, -0.5, normal_ratio=3)
     functions = Dict(
         "one arg" => Normalize.square,
         "two args" => (Normalize.add_then_invert, -0.5),

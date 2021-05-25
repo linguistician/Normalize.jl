@@ -87,6 +87,8 @@ ratios are not within the range of ±`normal_ratio`.
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
 - `"two args"` => a collection of functions that require two arguments
+
+Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values.
 """
 function get_skew_transformations(gdf; normal_ratio::Real=2)
     transformations = Dict(
@@ -137,6 +139,8 @@ The returned named tuple has the following fields:
 - `skewness_stat`: skewness statistic
 - `skewness_error`: skewness standard error
 - `skewness_ratio`: skewness ratio
+
+Throw `ArgumentError` if `col` is empty, or only contains NaNs.
 """
 function skewness(col, round_to::Integer=3)
     stat = skewness_stat(col, round_to)
@@ -153,15 +157,24 @@ end
     skewness_stat(col, round_to::Integer=3)
 
 Compute the skewness statistic of a collection `col`, rounded to `round_to` digits.
+
+Throw `ArgumentError` if `col` is empty, or only contains NaNs.
 """
 function skewness_stat(col, round_to::Integer=3)
-    if any(isnan, col)
+    if iszero(_length_with_nan_excluded(col))
+        throw(ArgumentError("col cannot be empty, nor only contain NaNs."))
+    elseif any(isnan, col)
         return round(
             SciPy.stats.skew(col, bias=false, nan_policy="omit")[1]; digits=round_to
         )
     else
         return round(SciPy.stats.skew(col, bias=false, nan_policy="omit"); digits=round_to)
     end
+end
+
+function _length_with_nan_excluded(col)
+    omission = count(isnan.(col))
+    return length(col) - omission
 end
 
 """
@@ -182,15 +195,16 @@ Compute the skewness variance of a collection `col`.
 It is calculated from the formula:
 
 ``\\frac{6N(N-1)}{(N-2)(N+1)(N+3)}``
+
+Throw `ArgumentError` if the number of items excluding `NaN` values is 2.
 """
 function skewness_variance(col)
     N = _length_with_nan_excluded(col)
-    return 6 * N * (N - 1) * invert((N - 2) * (N + 1) * (N + 3))
-end
+    if N === 2
+        throw(ArgumentError("The number of items excluding `NaN` values cannot be 2."))
+    end
 
-function _length_with_nan_excluded(col)
-    omission = count(isnan.(col))
-    return length(col) - omission
+    return 6 * N * (N - 1) * invert((N - 2) * (N + 1) * (N + 3))
 end
 
 """
@@ -217,6 +231,8 @@ The returned named tuple has the following fields:
 - `kurtosis_stat`: kurtosis statistic
 - `kurtosis_error`: kurtosis standard error
 - `kurtosis_ratio`: kurtosis ratio
+
+Throw `ArgumentError` if `col` is empty, or only contains NaNs.
 """
 function kurtosis(col, round_to::Integer=3)
     stat = kurtosis_stat(col, round_to)
@@ -233,9 +249,13 @@ end
     kurtosis_stat(col, round_to::Integer=3)
 
 Compute the kurtosis statistic of a collection `col`, rounded to `round_to` digits.
+
+Throw `ArgumentError` if `col` is empty, or only contains NaNs.
 """
 function kurtosis_stat(col, round_to::Integer=3)
-    if any(isnan, col)
+    if iszero(_length_with_nan_excluded(col))
+        throw(ArgumentError("col cannot be empty, nor only contain NaNs."))
+    elseif any(isnan, col)
         return round(
             SciPy.stats.kurtosis(col, bias=false, nan_policy="omit")[1]; digits=round_to
         )
@@ -264,9 +284,14 @@ Compute the kurtosis variance of a collection `col`.
 It is calculated from the formula:
 
 ``\\frac{4(N^2-1)*skewness_variance}{(N-3)(N+5)}``
+
+Throw `ArgumentError` if the number of items excluding `NaN` values is 2 or 3.
 """
 function kurtosis_variance(col)
     N = _length_with_nan_excluded(col)
+    if N === 3
+        throw(ArgumentError("The number of items excluding `NaN` values cannot be 3."))
+    end
     skewness_var = skewness_variance(col)
     return 4 * (N^2 - 1) * skewness_var * invert((N - 3) * (N + 5))
 end
@@ -431,7 +456,7 @@ end
 
 Compute ``\\sqrt{x + 1 - min}``.
 
-Throw error if `min > x`.
+Throw `ArgumentError` if `min > x`.
 """
 function add_then_square_root(x::Real, min::Real)
     if min > x
@@ -446,7 +471,7 @@ end
 
 Compute ``\\frac{1}{\\sqrt{x + 1 - min}}``.
 
-Throw error if `min > x`.
+Throw `ArgumentError` if `min > x`.
 """
 function add_then_square_root_then_invert(x::Real, min::Real)
     return invert(add_then_square_root(x, min))
@@ -457,7 +482,7 @@ end
 
 Compute ``\\frac{1}{x + 1 - min}``
 
-Throw error if `min > x`.
+Throw `ArgumentError` if `min > x`.
 """
 function add_then_invert(x::Real, min::Real)
     if min > x
@@ -472,7 +497,7 @@ end
 
 Compute ``\\log_{10}(x + 1 - min)``.
 
-Throw error if `min > x`.
+Throw `ArgumentError` if `min > x`.
 """
 function add_then_log_base_10(x::Real, min::Real)
     if min > x
@@ -502,7 +527,7 @@ end
 
 Compute ``\\ln(x + 1 - min)``.
 
-Throw error if `min > x`.
+Throw `ArgumentError` if `min > x`.
 """
 function add_then_natural_log(x::Real, min::Real)
     if min > x
@@ -532,7 +557,7 @@ end
 
 Compute ``\\frac{1}{x^2 + 1 - min^2}``.
 
-Throw `DivideError` if x^2 + 1 - min^2 is 0, and ErrorException if `min > x`.
+Throw `DivideError` if ``x^2 + 1 - min^2`` is 0, and `ArgumentError` if `min > x`.
 """
 function square_then_add_then_invert(x::Real, min::Real)
     if min > x
@@ -566,7 +591,7 @@ end
 
 Compute ``\\frac{1}{\\sqrt{x} + 1 - \\sqrt{min}}``.
 
-Throw `DomainError` if `x` or `min` is negative, and `ErrorException` if `min > x`.
+Throw `DomainError` if `x` or `min` is negative, and `ArgumentError` if `min > x`.
 """
 function square_root_then_add_then_invert(x::Real, min::Real)
     if min > x
@@ -682,13 +707,13 @@ end
 
 Compute ``\\sqrt{max + 1 - x}``.
 
-Throw error if `max < x`.
+Throw `ArgumentError` if `max < x`.
 """
 function reflect_then_square_root(x::Real, max::Real)
     if max < x
         throw(ArgumentError("max must be greater."))
     end
-    
+
     return √(max + 1 - x)
 end
 
@@ -697,7 +722,7 @@ end
 
 Compute ``\\log_{10}(max + 1 - x)``.
 
-Throw error if `max < x`.
+Throw `ArgumentError` if `max < x`.
 """
 function reflect_then_log_base_10(x::Real, max::Real)
     if max < x
@@ -712,7 +737,7 @@ end
 
 Compute ``\\frac{1}{max + 1 - x}``.
 
-Throw error if `max < x`.
+Throw `ArgumentError` if `max < x`.
 """
 function reflect_then_invert(x::Real, max::Real)
     if max < x
@@ -741,9 +766,7 @@ function get_stretch_skew_transformations(df)
     )
     if _contains(_cannot_add_then_logit, df)
         popfirst!(stretch["one arg"])
-    end
-
-    if _contains(_cannot_logit, df)
+    elseif _contains(_cannot_logit, df)
         pop!(stretch["one arg"])
     end
 
@@ -805,6 +828,9 @@ A dictionary is returned with the following key-value pairs:
     normal
 - `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
     are nonnormal
+
+Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
+marker is shorter than 2 characters, or does not only consist of punctuations.
 """
 function record_all(
     gdf, transform_series; normal_ratio::Real=2, marker::AbstractString="__"
@@ -851,6 +877,9 @@ A dictionary is returned with the following key-value pairs:
     normal
 - `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
     are nonnormal
+
+Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
+marker is shorter than 2 characters, or does not only consist of punctuations.
 """
 function record(
     df::AbstractDataFrame, transformations::Vector{Function};
@@ -938,6 +967,9 @@ A named tuple is returned with the following fields:
     `skewness_error`, `skewness_ratio`, `kurtosis_stat`, `kurtosis_error`, and
     `kurtosis_ratio`
 - `transformed_gdf`: a transformed (grouped) data frame
+
+Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
+marker is shorter than 2 characters, or does not only consist of punctuations.
 """
 function apply(func, df::AbstractDataFrame; marker::AbstractString="__")
     if _is_not_long_punctuation(marker)
@@ -1036,8 +1068,10 @@ end
 
 function _rename_valuecols(gd, fragment; marker::AbstractString="__")
     grouping = groupcols(gd)
-    new_names = [var => _rename_with(fragment, string(var); marker)
-                 for var in valuecols(gd)]
+    new_names = [
+        var => _rename_with(fragment, string(var); marker)
+        for var in valuecols(gd)
+    ]
     df_altered = rename(DataFrame(gd), new_names)
     return groupby(df_altered, grouping)
 end
@@ -1124,12 +1158,22 @@ function _concat_groupnames(gd, colnames)
     new_names = []
     for varname in colnames
         for group in keys(gd)
-            grouping = chop(string(group), head=length("GroupKey: ("))
+            grouping = _get_groupnames(group)
             push!(new_names, "$varname ($grouping)")
         end
     end
 
     return new_names
+end
+
+function _get_groupnames(group)
+    if isone(length(group))
+        punctuations = 2
+    else
+        punctuations = 1
+    end
+
+    return chop(string(group), head=length("GroupKey: ("), tail=punctuations)
 end
 
 function _label(prelim, tag)
@@ -1193,36 +1237,17 @@ values (i.e., " ") will be replaced with `blank_to` before conversion.
 `df` originated from data in a CSV, an Excel, or OpenDocument Spreadsheet file.
 
 If a value cannot be converted to `Float64`, an error is raised.
-
-# Examples
-```jldoctest
-julia> df = DataFrame(a=1:2, b=["4", "5.2"])
-2×2 DataFrame
- Row │ a      b
-     │ Int64  String
-─────┼───────────────
-   1 │     1  4
-   2 │     2  5.2
-
-julia> sheetcols_to_float!(df)
-2×2 DataFrame
- Row │ a      b
-     │ Int64  Float64
-─────┼────────────────
-   1 │     1      4.0
-   2 │     2      5.2
-```
 """
 function sheetcols_to_float!(df; blank_to::Real)
     for colname in names(df)
-        col = df[colname]
+        col = df[!, colname]
         if _is_from_csv_excel_or_opendoc(col)
             if _is_from_csv(col)
                 replace!(col, " " => "$(blank_to)")
-                df[colname] = parse.(Float64, col)
+                df[!, colname] = parse.(Float64, col)
             else
                 replace!(col, " " => blank_to)
-                df[colname] = convert(Vector{Float64}, col)
+                df[!, colname] = convert(Vector{Float64}, col)
             end
         end
     end
@@ -1246,7 +1271,7 @@ Replace all occurrences of `missing` with a number `new_value` in a data frame `
 """
 function replace_missing!(df, new_value)
     for colname in names(df)
-        col = df[colname]
+        col = df[!, colname]
         if _is_numbered(col)
             replace!(col, missing => new_value)
         end
@@ -1271,27 +1296,38 @@ If `dependent` is `true`, then the skewness and kurtosis of the difference betwe
 columns of `df` will be printed.
 """
 function print_skewness_kurtosis(df::AbstractDataFrame; dependent::Bool=false)
-    if dependent
-        if ncol(df) === 2
-            _print_dependent(df)
+    try
+        if dependent
+            if ncol(df) === 2
+                _print_dependent(df)
+            else
+                println("""
+                    There can only be two dependent variables to measure
+                    skewness and kurtosis.
+                    """
+                )
+            end
         else
-            println("""
-                There can only be two dependent variables to measure skewness and kurtosis.
-                """
-            )
+            _print_independent(df)
         end
-    else
-        _print_independent(df)
+    catch e
+        println(e)
     end
 end
 
 function print_skewness_kurtosis(gd)
-    gd_new = combine(gd, valuecols(gd) .=> x -> [skewness(x), kurtosis(x),]; ungroup=false)
-    for group in keys(gd_new)
-        for var in valuecols(gd_new)
-            tagged = _describe_var(gd_new, group, var)
-            _print_summary(tagged)
+    try
+        gd_new = combine(
+            gd, valuecols(gd) .=> x -> [skewness(x), kurtosis(x),]; ungroup=false
+        )
+        for group in keys(gd_new)
+            for var in valuecols(gd_new)
+                tagged = _describe_var(gd_new, group, var)
+                _print_summary(tagged)
+            end
         end
+    catch e
+        println(e)
     end
 end
 
@@ -1312,7 +1348,7 @@ end
 
 function _describe_var(gd, group_column, value_column)
     varname = chop(string(value_column), tail=length("_function"))
-    grouping = chop(string(group_column), head=length("GroupKey: ("))
+    grouping = _get_groupnames(group_column)
     tag = (
         name="$varname ($grouping)",
     )
@@ -1337,7 +1373,7 @@ end
 
 function _print_independent(df)
     for colname in names(df)
-        tagged = _describe_var(colname, df[colname])
+        tagged = _describe_var(colname, df[!, colname])
         _print_summary(tagged)
     end
 end
@@ -1392,20 +1428,20 @@ function normal_to_csv(path, findings; dependent::Bool=false)
         println("Only a filename ending in .csv can be used.")
         return nothing
     end
-    df_normal = findings["normal gdf"]
-    if isempty(df_normal)
+    normal_data = findings["normal gdf"]
+    if isempty(normal_data)
         println("There is no normal data to export.")
         return nothing
     end
 
-    if df_normal isa AbstractDataFrame
+    if normal_data isa AbstractDataFrame
         if dependent
-            df_normal = _store_zeros(df_normal)
+            normal_data = _store_zeros(normal_data)
         end
     else
-        df_normal = _flatten_grouped_dataframes(df_normal)
+        normal_data = _flatten_grouped_dataframes(normal_data)
     end
-    CSV.write(path, df_normal, transform=(col, val) -> _nan_to(missing, val))
+    CSV.write(path, normal_data, transform=(col, val) -> _nan_to(missing, val))
     return nothing
 end
 
