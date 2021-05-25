@@ -766,7 +766,9 @@ function get_stretch_skew_transformations(df)
     )
     if _contains(_cannot_add_then_logit, df)
         popfirst!(stretch["one arg"])
-    elseif _contains(_cannot_logit, df)
+    end
+
+    if _contains(_cannot_logit, df)
         pop!(stretch["one arg"])
     end
 
