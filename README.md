@@ -20,7 +20,7 @@ Download the project through Code, or through [Git](https://git-scm.com/download
 $ git clone https://github.com/muhadamanhuri/Normalize.jl.git
 ```
 
-To open Normalize.ipynb in the notebook folder, run [Julia](https://julialang.org/downloads/) in the [command line](https://julialang.org/downloads/platform/), add IJulia, and use the `notebook` function.
+Run [Julia](https://julialang.org/downloads/) in the [command line](https://julialang.org/downloads/platform/):
 
 ```
 $ cd path/to/project/folder
@@ -28,7 +28,11 @@ $ cd path/to/project/folder
 $ cd ..
 
 $ julia
+```
 
+Activate the project environment, and add the dependencies:
+
+```
 julia> import Pkg
 
 #If downloaded through Code
@@ -38,19 +42,23 @@ julia> Pkg.activate("Normalize.jl-main")
 julia> Pkg.activate("Normalize.jl")
 
 julia> Pkg.instantiate()
+```
 
+Add IJulia to the project environment, and use the `notebook` function:
+
+```
 julia> Pkg.add("IJulia")
 
 julia> using IJulia; notebook(dir=pwd())
 ```
 
-Navigate to the file.
+Navigate to Normalize.ipynb in the notebook folder.
 
 Click the code cells, and click Run.
 
 ### Module
 
-If you want only the module, add the package in `julia`. It is recommended to create a project environment beforehand.
+To download only the module, add the package in `julia`. It is recommended to create a project environment beforehand:
 
 ```
 julia> import Pkg; Pkg.activate("<project name>")
