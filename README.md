@@ -23,7 +23,7 @@ $ git clone https://github.com/muhadamanhuri/Normalize.jl.git
 Run [Julia](https://julialang.org/downloads/) in the [command line](https://julialang.org/downloads/platform/):
 
 ```
-$ cd path/to/project/folder
+$ cd path/to/project/folder/
 
 $ cd ..
 
