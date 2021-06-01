@@ -23,24 +23,28 @@ $ git clone https://github.com/muhadamanhuri/Normalize.jl.git
 To open Normalize.ipynb in the notebook folder, run [Julia](https://julialang.org/downloads/) in the [command line](https://julialang.org/downloads/platform/), add IJulia, and use the `notebook` function.
 
 ```
-$ cd path/of/project/folder
+$ cd path/to/project/folder
 
 $ cd ..
 
 $ julia
 
+julia> import Pkg
+
 #If downloaded through Code
-julia> import Pkg; Pkg.activate("Normalize.jl-main")
+julia> Pkg.activate("Normalize.jl-main")
 
 #If downloaded through Git
-julia> import Pkg; Pkg.activate("Normalize.jl")
+julia> Pkg.activate("Normalize.jl")
+
+julia> Pkg.instantiate()
 
 julia> Pkg.add("IJulia")
 
 julia> using IJulia; notebook(dir=pwd())
 ```
 
-Navigate to the folder and then the file.
+Navigate to the file.
 
 Click the code cells, and click Run.
 

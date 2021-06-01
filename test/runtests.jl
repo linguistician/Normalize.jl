@@ -318,37 +318,45 @@ end
     df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13])
     function check_record(df::AbstractDataFrame, func; normal_ratio=2)
         record1 = record(df, Function[func]; normal_ratio)
-        @test !isempty(record1["normalized"])
-        @test "$func" in keys(record1["normalized"])
-        nt1 = record1["normalized"]["$func"][1]
-        @test nt1[:name] == "a"
-        @test haskey(nt1, :skewness_stat)
-        @test haskey(nt1, :skewness_error)
-        @test haskey(nt1, :skewness_ratio)
-        @test haskey(nt1, :kurtosis_stat)
-        @test haskey(nt1, :kurtosis_error)
-        @test haskey(nt1, :kurtosis_ratio)
-        @test length(record1["normalized"]) == ncol(record1["normal gdf"])
+        normal_vars = record1["normalized"]
+        @test length(normal_vars) == ncol(record1["normal gdf"][1])
+        for nt1 in normal_vars["$func"]
+            @test nt1[:name] == "a"
+            @test haskey(nt1, :skewness_stat)
+            @test haskey(nt1, :skewness_error)
+            @test haskey(nt1, :skewness_ratio)
+            @test haskey(nt1, :kurtosis_stat)
+            @test haskey(nt1, :kurtosis_error)
+            @test haskey(nt1, :kurtosis_ratio)
+        end
+
+        for df in record1["normal gdf"]
+            @test df isa AbstractDataFrame
+        end
         @test isempty(record1["nonnormal gdf"])
     end
 
     function check_record(df::AbstractDataFrame, func, func_other_arg; normal_ratio=2)
         record1 = record(df, [(func, func_other_arg)]; normal_ratio)
-        @test !isempty(record1["normalized"])
+        normal_vars = record1["normalized"]
+        @test length(normal_vars) == ncol(record1["normal gdf"][1])
         func_name = join(split("$func", "_then_"), " and ")
-        @test func_name in keys(record1["normalized"])
-        nt1 = record1["normalized"][func_name][1]
-        @test nt1[:name] == "a"
-        @test haskey(nt1, :skewness_stat)
-        @test haskey(nt1, :skewness_error)
-        @test haskey(nt1, :skewness_ratio)
-        @test haskey(nt1, :kurtosis_stat)
-        @test haskey(nt1, :kurtosis_error)
-        @test haskey(nt1, :kurtosis_ratio)
-        @test length(record1["normalized"]) == ncol(record1["normal gdf"])
+        for nt1 in normal_vars[func_name]
+            @test nt1[:name] == "a"
+            @test haskey(nt1, :skewness_stat)
+            @test haskey(nt1, :skewness_error)
+            @test haskey(nt1, :skewness_ratio)
+            @test haskey(nt1, :kurtosis_stat)
+            @test haskey(nt1, :kurtosis_error)
+            @test haskey(nt1, :kurtosis_ratio)
+        end
+
+        for df in record1["normal gdf"]
+            @test df isa AbstractDataFrame
+        end
         @test isempty(record1["nonnormal gdf"])
     end
-
+        
     function check_records(df::AbstractDataFrame, transform_series; normal_ratio=2)
         check_record(df, transform_series["one arg"]; normal_ratio)
     check_record(df, transform_series["two args"]...; normal_ratio)
@@ -356,8 +364,8 @@ end
 
     function check_record(gd, func; normal_ratio=2)
         record1 = record(gd, Function[func]; normal_ratio)
-        @test !isempty(record1["normalized"])
-        @test "$func" in keys(record1["normalized"])
+        normal_vars = record1["normalized"]
+        @test length(normal_vars) == length(valuecols(record1["normal gdf"][1]))
         for (index, nt1) in enumerate(record1["normalized"]["$func"])
             @test nt1[:name] == "a (group = $index)"
             @test haskey(nt1, :skewness_stat)
@@ -367,16 +375,19 @@ end
             @test haskey(nt1, :kurtosis_error)
             @test haskey(nt1, :kurtosis_ratio)
         end
-        @test length(record1["normal gdf"][1]) == 2
-        @test length(record1["normal gdf"]) != length(record1["nonnormal gdf"])
+
+        for gd in record1["normal gdf"]
+            @test gd isa GroupedDataFrame
+        end
+        @test isempty(record1["nonnormal gdf"])
     end
 
     function check_record(gd, func, func_other_arg; normal_ratio=2)
         record1 = record(gd, [(func, func_other_arg)]; normal_ratio)
-        @test !isempty(record1["normalized"])
+        normal_vars = record1["normalized"]
+        @test length(normal_vars) == length(valuecols(record1["normal gdf"][1]))
         no_under = join(split("$func", "_"), " ")
         func_name = join(split(no_under, " then "), " and ")
-        @test func_name in keys(record1["normalized"])
         for (index, nt1) in enumerate(record1["normalized"][func_name])
             @test nt1[:name] == "a (group = $index)"
             @test haskey(nt1, :skewness_stat)
@@ -386,8 +397,11 @@ end
             @test haskey(nt1, :kurtosis_error)
             @test haskey(nt1, :kurtosis_ratio)
         end
-        @test length(record1["normal gdf"][1]) == 2
-        @test length(record1["normal gdf"]) != length(record1["nonnormal gdf"])
+
+        for gd in record1["normal gdf"]
+            @test gd isa GroupedDataFrame
+        end
+        @test isempty(record1["nonnormal gdf"])
     end
 
     function check_records(gd, transform_series; normal_ratio=2)

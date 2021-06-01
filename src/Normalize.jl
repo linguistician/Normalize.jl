@@ -35,10 +35,8 @@ Functions will be separately applied to `gdf`, and the column names of the trans
 A dictionary is returned with the following key-value pairs:
 - `"normalized"` => a dictionary of a collection value of named tuples containing
     skewnesses and kurtoses for each normal transformation key
-- `"normal gdf"` => a transformed data frame or list of grouped data frames whose data are
-    normal
-- `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
-    are nonnormal
+- `"normal gdf"` => a list of transformed (grouped) data frames whose data are normal
+- `"nonnormal gdf"` => a list of transformed (grouped) data frames whose data are nonnormal
 """
 function normalize(
     gdf; normal_ratio::Real=2, dependent::Bool=false, marker::AbstractString="__"
@@ -62,8 +60,8 @@ function normalize(
         println(e)
         return Dict(
             "normalized" => Dict(),
-            "normal gdf" => DataFrame(),
-            "nonnormal gdf" => DataFrame(),
+            "normal gdf" => [],
+            "nonnormal gdf" => [],
         )
     end
 end
@@ -122,7 +120,7 @@ function _get_skewness_kurtosis(df::AbstractDataFrame)
 end
 
 function _get_skewness_kurtosis(gd)
-    gd_new = combine(gd, valuecols(gd) => x -> [skewness(x), kurtosis(x),]; ungroup=false)
+    gd_new = combine(gd, valuecols(gd) .=> x -> [skewness(x), kurtosis(x),]; ungroup=false)
     return [
         merge(gd_new[group][var]...)
         for group in keys(gd_new)
@@ -202,9 +200,9 @@ function skewness_variance(col)
     N = _length_with_nan_excluded(col)
     if N === 2
         throw(ArgumentError("The number of items excluding `NaN` values cannot be 2."))
+    else
+        return 6 * N * (N - 1) * invert((N - 2) * (N + 1) * (N + 3))
     end
-
-    return 6 * N * (N - 1) * invert((N - 2) * (N + 1) * (N + 3))
 end
 
 """
@@ -217,9 +215,9 @@ Throw `DivideError` if `x` is 0.
 function invert(x::Real)
     if iszero(x)
         throw(DivideError())
+    else
+        return inv(x)
     end
-
-    return inv(x)
 end
 
 """
@@ -461,9 +459,9 @@ Throw `ArgumentError` if `min > x`.
 function add_then_square_root(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
+    else
+        return √(x + 1 - min)
     end
-
-    return √(x + 1 - min)
 end
 
 """
@@ -487,9 +485,9 @@ Throw `ArgumentError` if `min > x`.
 function add_then_invert(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
+    else
+        return invert(x + 1 - min)
     end
-
-    return invert(x + 1 - min)
 end
 
 """
@@ -502,9 +500,9 @@ Throw `ArgumentError` if `min > x`.
 function add_then_log_base_10(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
+    else
+        return log_base_10(x + 1 - min)
     end
-
-    return log_base_10(x + 1 - min)
 end
 
 """
@@ -517,9 +515,9 @@ Throw `DomainError` if `x ≤ 0`.
 function log_base_10(x::Real)
     if iszero(x)
         throw(DomainError(x))
+    else
+        return log10(x)
     end
-
-    return log10(x)
 end
 
 """
@@ -532,9 +530,9 @@ Throw `ArgumentError` if `min > x`.
 function add_then_natural_log(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
+    else
+        return natural_log(x + 1 - min)
     end
-
-    return natural_log(x + 1 - min)
 end
 
 """
@@ -547,9 +545,9 @@ Throw `DomainError` if `x ≤ 0`.
 function natural_log(x::Real)
     if iszero(x)
         throw(DomainError(x))
+    else
+        return log(x)
     end
-
-    return log(x)
 end
 
 """
@@ -562,9 +560,9 @@ Throw `DivideError` if ``x^2 + 1 - min^2`` is 0, and `ArgumentError` if `min > x
 function square_then_add_then_invert(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
+    else
+        return invert(x^2 + 1 - min^2)
     end
-
-    return invert(x^2 + 1 - min^2)
 end
 
 function _cannot_square_then_add_then_invert(x::Real, min::Real)
@@ -596,9 +594,9 @@ Throw `DomainError` if `x` or `min` is negative, and `ArgumentError` if `min > x
 function square_root_then_add_then_invert(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
+    else
+        return invert(√x + 1 - √min)
     end
-
-    return invert(√x + 1 - √min)
 end
 
 # min ≥ 1 
@@ -712,9 +710,9 @@ Throw `ArgumentError` if `max < x`.
 function reflect_then_square_root(x::Real, max::Real)
     if max < x
         throw(ArgumentError("max must be greater."))
+    else
+        return √(max + 1 - x)
     end
-
-    return √(max + 1 - x)
 end
 
 """
@@ -727,9 +725,9 @@ Throw `ArgumentError` if `max < x`.
 function reflect_then_log_base_10(x::Real, max::Real)
     if max < x
         throw(ArgumentError("max must be greater."))
+    else
+        return log_base_10(max + 1 - x)
     end
-
-    return log_base_10(max + 1 - x)
 end
 
 """
@@ -742,9 +740,9 @@ Throw `ArgumentError` if `max < x`.
 function reflect_then_invert(x::Real, max::Real)
     if max < x
         throw(ArgumentError("max must be greater."))
+    else
+        return invert(max + 1 - x)
     end
-
-    return invert(max + 1 - x)
 end
 
 """
@@ -812,9 +810,9 @@ end
     ) -> AbstractDict
 
 Compute the skewness and kurtosis for each function in a dictionary `transform_series`
-applied to a (grouped) data frame `gdf`, and return a dictionary of transformed columns in 
-a data frame or grouped data frames, and of any resulting skewness and kurtosis whose
-ratios are within the range of ±`normal_ratio`.
+applied to a (grouped) data frame `gdf`, and return a dictionary of transformed (grouped)
+data frames, and of any resulting skewness and kurtosis whose ratios are within the range
+of ±`normal_ratio`.
 
 `transform_series` has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
@@ -826,13 +824,12 @@ Functions will be separately applied to `gdf`, and the column names of the trans
 A dictionary is returned with the following key-value pairs:
 - `"normalized"` => a dictionary of a collection value of named tuples containing
     skewnesses and kurtoses for each normal transformation key
-- `"normal gdf"` => a transformed data frame or list of grouped data frames whose data are
-    normal
-- `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
-    are nonnormal
+- `"normal gdf"` => a list of transformed (grouped) data frames whose data are normal
+- `"nonnormal gdf"` => a list of transformed (grouped) data frames whose data are nonnormal
 
 Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
-marker is shorter than 2 characters, or does not only consist of punctuations.
+marker is shorter than 2 characters, or does not only consist of punctuations; and
+`OverflowError` if transforming `df` or `gd` results in a value too large to represent.
 """
 function record_all(
     gdf, transform_series; normal_ratio::Real=2, marker::AbstractString="__"
@@ -844,81 +841,37 @@ end
 
 """
     record(
-        df::AbstractDataFrame, transformations::Vector{Function};
+        gdf, transformations::Vector{Function};
         normal_ratio::Real=2, marker::AbstractString="__"
     ) -> AbstractDict
     record(
-        df::AbstractDataFrame, transformations;
-        normal_ratio::Real=2, marker::AbstractString="__"
-    ) -> AbstractDict
-    record(
-        gd, transformations::Vector{Function};
-        normal_ratio::Real=2, marker::AbstractString="__"
-    ) -> AbstractDict
-    record(
-        gd, transformations; normal_ratio::Real=2, marker::AbstractString="__"
+        gdf, transformations; normal_ratio::Real=2, marker::AbstractString="__"
     ) -> AbstractDict
 
-Compute the skewness and kurtosis for each function in `transformations` applied to `df` or
-grouped data frame `gd`, and return a dictionary of transformed columns in a data frame or
-grouped data frames, and of any resulting skewness and kurtosis whose ratios are within the
-range of ±`normal_ratio`.
+Compute the skewness and kurtosis for each function in `transformations` applied to a
+(grouped) data frame `gdf`, and return a dictionary of transformed (grouped) data frames,
+and of any resulting skewness and kurtosis whose ratios are within the range of
+±`normal_ratio`.
 
-If `transformation` is not of type `Vector{Function}`, then it is a collection of function
-and extremum pairs. The extremum is the minimum or maximum value of `df` that corresponds
+If `transformations` is not of type `Vector{Function}`, then it is a collection of function
+and extremum pairs. The extremum is the minimum or maximum value of `gdf` that corresponds
 to the second argument of the paired function.
 
-Functions will be separately applied to `df` or `gd`, and the column names of the
-transformed (grouped) data frame will be suffixed with a string `marker` and the applied
-functions.
+Functions will be separately applied to `gdf`, and the column names of the transformed
+(grouped) data frame will be suffixed with a string `marker` and the applied functions.
 
 A dictionary is returned with the following key-value pairs:
 - `"normalized"` => a dictionary of a collection value of named tuples containing
     skewnesses and kurtoses for each normal transformation key
-- `"normal gdf"` => a transformed data frame or list of grouped data frames whose data are
-    normal
-- `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
-    are nonnormal
+- `"normal gdf"` => a list of transformed (grouped) data frames whose data are normal
+- `"nonnormal gdf"` => a list of transformed (grouped) data frames whose data are nonnormal
 
 Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
-marker is shorter than 2 characters, or does not only consist of punctuations.
+marker is shorter than 2 characters, or does not only consist of punctuations; and
+`OverflowError` if transforming `df` or `gd` results in a value too large to represent.
 """
 function record(
-    df::AbstractDataFrame, transformations::Vector{Function};
-    normal_ratio::Real=2, marker::AbstractString="__"
-)
-    main_record = Dict(
-        "normalized" => Dict(),
-        "normal gdf" => DataFrame(),
-        "nonnormal gdf" => DataFrame(),
-    )
-    for transformation in transformations
-        results = apply(transformation, df; marker)
-        _update_normal!(main_record, results; normal_ratio, marker)
-    end
-
-    return main_record
-end
-
-function record(
-    df::AbstractDataFrame, transformations;
-    normal_ratio::Real=2, marker::AbstractString="__"
-)
-    main_record = Dict(
-        "normalized" => Dict(),
-        "normal gdf" => DataFrame(),
-        "nonnormal gdf" => DataFrame(),
-    )
-    for (transformation, extremum) in transformations
-        results = apply(transformation, df, extremum; marker)
-        _update_normal!(main_record, results; normal_ratio, marker)
-    end
-
-    return main_record
-end
-
-function record(
-    gd, transformations::Vector{Function};
+    gdf, transformations::Vector{Function};
     normal_ratio::Real=2, marker::AbstractString="__"
 )
     main_record = Dict(
@@ -927,21 +880,21 @@ function record(
         "nonnormal gdf" => [],
     )
     for transformation in transformations
-        results = apply(transformation, gd; marker)
+        results = apply(transformation, gdf; marker)
         _update_normal!(main_record, results; normal_ratio, marker)
     end
 
     return main_record
 end
 
-function record(gd, transformations; normal_ratio::Real=2, marker::AbstractString="__")
+function record(gdf, transformations; normal_ratio::Real=2, marker::AbstractString="__")
     main_record = Dict(
         "normalized" => Dict(),
         "normal gdf" => [],
         "nonnormal gdf" => [],
     )
     for (transformation, extremum) in transformations
-        results = apply(transformation, gd, extremum; marker)
+        results = apply(transformation, gdf, extremum; marker)
         _update_normal!(main_record, results; normal_ratio, marker)
     end
 
@@ -971,7 +924,8 @@ A named tuple is returned with the following fields:
 - `transformed_gdf`: a transformed (grouped) data frame
 
 Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
-marker is shorter than 2 characters, or does not only consist of punctuations.
+marker is shorter than 2 characters, or does not only consist of punctuations; and
+`OverflowError` if transforming `df` or `gd` results in a value too large to represent.
 """
 function apply(func, df::AbstractDataFrame; marker::AbstractString="__")
     if _is_not_long_punctuation(marker)
@@ -982,7 +936,7 @@ function apply(func, df::AbstractDataFrame; marker::AbstractString="__")
         )
     end
     df_altered = rename(colname -> _rename_with("-+", colname; marker=""), df)
-    select!(df_altered, names(df_altered) .=> ByRow(func))
+    df_altered = _select_finite(func, df_altered)
     rename!(colname -> _rename_with(func, colname; marker), df_altered)
     return (
         skewness_and_kurtosis=_get_skewness_kurtosis(df_altered),
@@ -999,7 +953,7 @@ function apply(func, df::AbstractDataFrame, func_other_arg; marker::AbstractStri
         )
     end
     df_altered = rename(colname -> _rename_with("-+", colname; marker=""), df)
-    select!(df_altered, names(df_altered) .=> ByRow(x -> func(x, func_other_arg)))
+    df_altered = _select_finite(func, df_altered, func_other_arg)
     rename!(colname -> _rename_with(func, colname; marker), df_altered)
     return (
         skewness_and_kurtosis=_get_skewness_kurtosis(df_altered),
@@ -1016,7 +970,7 @@ function apply(func, gd; marker::AbstractString="__")
         )
     end
     gd_new = _rename_valuecols(gd, "-+"; marker="")
-    gd_new = select(gd_new, valuecols(gd_new) .=> ByRow(func); ungroup=false)
+    gd_new = _select_finite(func, gd_new)
     gd_new = _rename_valuecols(gd_new, func; marker)
     return (
         skewness_and_kurtosis=_get_skewness_kurtosis(gd_new),
@@ -1033,9 +987,7 @@ function apply(func, gd, func_other_arg; marker::AbstractString="__")
         )
     end
     gd_new = _rename_valuecols(gd, "-+"; marker="")
-    gd_new = select(
-        gd_new, valuecols(gd_new) .=> ByRow(x -> func(x, func_other_arg)); ungroup=false
-    )
+    gd_new = _select_finite(func, gd_new, func_other_arg)
     gd_new = _rename_valuecols(gd_new, func; marker)
     return (
         skewness_and_kurtosis=_get_skewness_kurtosis(gd_new),
@@ -1078,6 +1030,48 @@ function _rename_valuecols(gd, fragment; marker::AbstractString="__")
     return groupby(df_altered, grouping)
 end
 
+function _select_finite(func, df::AbstractDataFrame)
+    df = select(df, names(df) .=> ByRow(func))
+    if _contains(isinf, df)
+        throw(OverflowError("Transforming df results in a value too large to represent."))
+    else
+        return df
+    end
+end
+
+function _select_finite(func, df::AbstractDataFrame, func_other_arg)
+    df = select(df, names(df) .=> ByRow(x -> func(x, func_other_arg)))
+    if _contains(isinf, df)
+        throw(OverflowError("Transforming df results in a value too large to represent."))
+    else
+        return df
+    end
+end
+
+function _select_finite(func, gd)
+    grouping = groupcols(gd)
+    gd = select(gd, valuecols(gd) .=> ByRow(func); ungroup=false)
+    df_example = DataFrame(gd)
+    if _contains(isinf, df_example[Not(grouping)])
+        throw(OverflowError("Transforming gd results in a value too large to represent."))
+    else
+        return gd
+    end
+end
+
+function _select_finite(func, gd, func_other_arg)
+    grouping = groupcols(gd)
+    gd = select(
+        gd, valuecols(gd) .=> ByRow(x -> func(x, func_other_arg)); ungroup=false
+    )
+    df_example = DataFrame(gd)
+    if _contains(isinf, df_example[Not(grouping)])
+        throw(OverflowError("Transforming gd results in a value too large to represent."))
+    else
+        return gd
+    end
+end
+
 function _update_normal!(
     entries, applied; normal_ratio::Real=2, marker::AbstractString="__"
 )
@@ -1117,10 +1111,10 @@ function _get_applied_function_names(gd; marker::AbstractString="__")
     return _make_legible(function_names, " then "; marker)
 end
 
-function _make_legible(snake_case, split_on=" "; marker::AbstractString="__")
+function _make_legible(snake_case, listing_split_on=" "; marker::AbstractString="__")
     words = _make_phrase(snake_case, "_", " ")
-    listable = _make_listing(words, split_on)
-    extra_chars = _underscore_to_space(marker)
+    listable = _make_listing(words, listing_split_on)
+    extra_chars = _underscores_to_spaces(marker)
     return _make_phrase(listable, extra_chars, "; ")
 end
 
@@ -1138,7 +1132,7 @@ function _make_listing(phrase, split_on=" ")
     end
 end
 
-function _underscore_to_space(separator)
+function _underscores_to_spaces(separator)
     chars = length(separator)
     if separator === repeat("_", chars)
         return repeat(" ", chars)
@@ -1185,17 +1179,12 @@ function _label(prelim, tag)
     return merge(title, prelim)
 end
 
-function _store_transformed!(entries, key, value::AbstractDataFrame)
-    entries[key] = hcat(entries[key], value)
-    return entries[key]
+function _store_transformed!(entries, key, value::AbstractVector)
+    return append!(entries[key], value)
 end
 
 function _store_transformed!(entries, key, value)
-    if isempty(value)
-        return append!(entries[key], value)
-    else
-        return push!(entries[key], value)
-    end
+    return push!(entries[key], value)
 end
 
 function _merge_results!(entries, other)
@@ -1388,10 +1377,8 @@ Print the normal skewness and kurtosis in a dictionary `findings`.
 `findings` has the following key-value pairs:
 - `"normalized"` => a dictionary of a collection value of named tuples containing
     skewnesses and kurtoses for each normal transformation key
-- `"normal gdf"` => a transformed data frame or list of grouped data frames whose data are
-    normal
-- `"nonnormal gdf"` => a transformed data frame or list of grouped data frames whose data
-    are nonnormal
+- `"normal gdf"` => a list of transformed (grouped) data frames whose data are normal
+- `"nonnormal gdf"` => a list of transformed (grouped) data frames whose data are nonnormal
 """
 function print_findings(findings)
     normal = findings["normalized"]
@@ -1436,15 +1423,25 @@ function normal_to_csv(path, findings; dependent::Bool=false)
         return nothing
     end
 
-    if normal_data isa AbstractDataFrame
+    if normal_data[1] isa AbstractDataFrame
+        df_normal = _flatten_dataframes(normal_data)
         if dependent
-            normal_data = _store_zeros(normal_data)
+            df_normal = _store_zeros(df_normal)
         end
     else
-        normal_data = _flatten_grouped_dataframes(normal_data)
+        df_normal = _flatten_grouped_dataframes(normal_data)
     end
-    CSV.write(path, normal_data, transform=(col, val) -> _nan_to(missing, val))
+    CSV.write(path, df_normal, transform=(col, val) -> _nan_to(missing, val))
     return nothing
+end
+
+function _flatten_dataframes(gdfs)
+    df_new = DataFrame()
+    for df in gdfs
+        df_new = hcat(df_new, df)
+    end
+
+    return df_new
 end
 
 function _store_zeros(df)
