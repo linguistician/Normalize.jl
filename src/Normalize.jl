@@ -396,15 +396,15 @@ function get_positive_skew_transformations(df)
         positive = Dict(
             "one arg" => Function[],
             "two args" => Any[
-                add_then_square_root,
-                add_then_square_root_then_invert,
-                add_then_invert,
-                add_then_log_base_10,
-                add_then_natural_log,
-                square_then_add_then_invert,
+                add_n_square_root,
+                add_n_square_root_n_invert,
+                add_n_invert,
+                add_n_log_base_10,
+                add_n_natural_log,
+                square_n_add_n_invert,
             ],
         )
-        if _contains(_cannot_square_then_add_then_invert, df, min)
+        if _contains(_cannot_square_n_add_n_invert, df, min)
             pop!(positive["two args"])
         end
     elseif 0 ≤ min < 1
@@ -413,20 +413,20 @@ function get_positive_skew_transformations(df)
                 square_root,
             ],
             "two args" => Any[
-                square_root_then_add_then_invert,
-                add_then_invert,
-                add_then_log_base_10,
-                add_then_natural_log,
-                square_then_add_then_invert,
+                square_root_n_add_n_invert,
+                add_n_invert,
+                add_n_log_base_10,
+                add_n_natural_log,
+                square_n_add_n_invert,
             ],
         )
     else
         positive = Dict(
             "one arg" => Function[
                 square_root,
-                square_root_then_invert,
+                square_root_n_invert,
                 invert,
-                square_then_invert,
+                square_n_invert,
                 log_base_10,
                 natural_log,
             ],
@@ -447,16 +447,16 @@ function _extrema(df)
 end
 
 # min < 0 
-# (add_then_square_root, add_then_square_root_then_invert, add_then_invert,
-# add_then_log_base_10, add_then_natural_log, square_then_add_then_invert)
+# (add_n_square_root, add_n_square_root_n_invert, add_n_invert,
+# add_n_log_base_10, add_n_natural_log, square_n_add_n_invert)
 """
-    add_then_square_root(x::Real, min::Real)
+    add_n_square_root(x::Real, min::Real)
 
 Compute ``\\sqrt{x + 1 - min}``.
 
 Throw `ArgumentError` if `min > x`.
 """
-function add_then_square_root(x::Real, min::Real)
+function add_n_square_root(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
     else
@@ -465,24 +465,24 @@ function add_then_square_root(x::Real, min::Real)
 end
 
 """
-    add_then_square_root_then_invert(x::Real, min::Real)
+    add_n_square_root_n_invert(x::Real, min::Real)
 
 Compute ``\\frac{1}{\\sqrt{x + 1 - min}}``.
 
 Throw `ArgumentError` if `min > x`.
 """
-function add_then_square_root_then_invert(x::Real, min::Real)
-    return invert(add_then_square_root(x, min))
+function add_n_square_root_n_invert(x::Real, min::Real)
+    return invert(add_n_square_root(x, min))
 end
 
 """
-    add_then_invert(x::Real, min::Real)
+    add_n_invert(x::Real, min::Real)
 
 Compute ``\\frac{1}{x + 1 - min}``
 
 Throw `ArgumentError` if `min > x`.
 """
-function add_then_invert(x::Real, min::Real)
+function add_n_invert(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
     else
@@ -491,13 +491,13 @@ function add_then_invert(x::Real, min::Real)
 end
 
 """
-    add_then_log_base_10(x::Real, min::Real)
+    add_n_log_base_10(x::Real, min::Real)
 
 Compute ``\\log_{10}(x + 1 - min)``.
 
 Throw `ArgumentError` if `min > x`.
 """
-function add_then_log_base_10(x::Real, min::Real)
+function add_n_log_base_10(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
     else
@@ -521,13 +521,13 @@ function log_base_10(x::Real)
 end
 
 """
-    add_then_natural_log(x::Real, min::Real)
+    add_n_natural_log(x::Real, min::Real)
 
 Compute ``\\ln(x + 1 - min)``.
 
 Throw `ArgumentError` if `min > x`.
 """
-function add_then_natural_log(x::Real, min::Real)
+function add_n_natural_log(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
     else
@@ -551,13 +551,13 @@ function natural_log(x::Real)
 end
 
 """
-    square_then_add_then_invert(x::Real, min::Real)
+    square_n_add_n_invert(x::Real, min::Real)
 
 Compute ``\\frac{1}{x^2 + 1 - min^2}``.
 
 Throw `DivideError` if ``x^2 + 1 - min^2`` is 0, and `ArgumentError` if `min > x`.
 """
-function square_then_add_then_invert(x::Real, min::Real)
+function square_n_add_n_invert(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
     else
@@ -565,13 +565,13 @@ function square_then_add_then_invert(x::Real, min::Real)
     end
 end
 
-function _cannot_square_then_add_then_invert(x::Real, min::Real)
+function _cannot_square_n_add_n_invert(x::Real, min::Real)
     return x^2 + 1 - min^2 === 0
 end
 
 # 0 ≤ min < 1 
-# (square_root, square_root_then_add_then_invert, add_then_invert, add_then_log_base_10,
-# add_then_natural_log, square_then_add_then_invert)
+# (square_root, square_root_n_add_n_invert, add_n_invert, add_n_log_base_10,
+# add_n_natural_log, square_n_add_n_invert)
 
 """
     square_root(x::Real)
@@ -585,13 +585,13 @@ function square_root(x::Real)
 end
 
 """
-    square_root_then_add_then_invert(x::Real, min::Real)
+    square_root_n_add_n_invert(x::Real, min::Real)
 
 Compute ``\\frac{1}{\\sqrt{x} + 1 - \\sqrt{min}}``.
 
 Throw `DomainError` if `x` or `min` is negative, and `ArgumentError` if `min > x`.
 """
-function square_root_then_add_then_invert(x::Real, min::Real)
+function square_root_n_add_n_invert(x::Real, min::Real)
     if min > x
         throw(ArgumentError("min must be smaller."))
     else
@@ -600,28 +600,28 @@ function square_root_then_add_then_invert(x::Real, min::Real)
 end
 
 # min ≥ 1 
-# (square_root, square_root_then_invert, invert, square_then_invert, log_base_10,
+# (square_root, square_root_n_invert, invert, square_n_invert, log_base_10,
 # natural_log, invert)
 
 """
-    square_root_then_invert(x::Real)
+    square_root_n_invert(x::Real)
 
 Compute ``\\frac{1}{\\sqrt{x}}``.
 
 Throw `DomainError` if `x` is negative, and `DivideError` if `x` is 0.
 """
-function square_root_then_invert(x::Real)
+function square_root_n_invert(x::Real)
     return invert(√x)
 end
 
 """
-    square_then_invert(x::Real)
+    square_n_invert(x::Real)
 
 Compute ``\\frac{1}{x^2}``.
 
 Throw `DivideError` if `x` is 0.
 """
-function square_then_invert(x::Real)
+function square_n_invert(x::Real)
     return invert(x^2)
 end
 
@@ -664,9 +664,9 @@ function get_negative_skew_transformations(df)
             antilog,
         ],
         "two args" => Any[
-            reflect_then_square_root,
-            reflect_then_log_base_10,
-            reflect_then_invert,
+            reflect_n_square_root,
+            reflect_n_log_base_10,
+            reflect_n_invert,
         ],
     )
     negative["two args"] = map(func -> (func, max), negative["two args"])
@@ -701,13 +701,13 @@ function antilog(x::Real)
 end
 
 """
-    reflect_then_square_root(x::Real, max::Real)
+    reflect_n_square_root(x::Real, max::Real)
 
 Compute ``\\sqrt{max + 1 - x}``.
 
 Throw `ArgumentError` if `max < x`.
 """
-function reflect_then_square_root(x::Real, max::Real)
+function reflect_n_square_root(x::Real, max::Real)
     if max < x
         throw(ArgumentError("max must be greater."))
     else
@@ -716,13 +716,13 @@ function reflect_then_square_root(x::Real, max::Real)
 end
 
 """
-    reflect_then_log_base_10(x::Real, max::Real)
+    reflect_n_log_base_10(x::Real, max::Real)
 
 Compute ``\\log_{10}(max + 1 - x)``.
 
 Throw `ArgumentError` if `max < x`.
 """
-function reflect_then_log_base_10(x::Real, max::Real)
+function reflect_n_log_base_10(x::Real, max::Real)
     if max < x
         throw(ArgumentError("max must be greater."))
     else
@@ -731,13 +731,13 @@ function reflect_then_log_base_10(x::Real, max::Real)
 end
 
 """
-    reflect_then_invert(x::Real, max::Real)
+    reflect_n_invert(x::Real, max::Real)
 
 Compute ``\\frac{1}{max + 1 - x}``.
 
 Throw `ArgumentError` if `max < x`.
 """
-function reflect_then_invert(x::Real, max::Real)
+function reflect_n_invert(x::Real, max::Real)
     if max < x
         throw(ArgumentError("max must be greater."))
     else
@@ -757,12 +757,12 @@ The returned dictionary has the following key-value pairs:
 function get_stretch_skew_transformations(df)
     stretch = Dict(
         "one arg" => Function[
-            add_then_logit,
+            add_n_logit,
             logit,
         ],
         "two args" => Any[],
     )
-    if _contains(_cannot_add_then_logit, df)
+    if _contains(_cannot_add_n_logit, df)
         popfirst!(stretch["one arg"])
     end
 
@@ -774,14 +774,14 @@ function get_stretch_skew_transformations(df)
 end
 
 """
-    add_then_logit(x::Real)
+    add_n_logit(x::Real)
 
 Compute the logit of `x + 0.25` in base 10, in other words
 ``\\log_{10}|\\frac{x + 0.25}{1 - (x + 0.25)}|``.
 
 Throw `DomainError` if `x` is -0.25, and `DivideError` if `x` is 0.75.
 """
-function add_then_logit(x::Real)
+function add_n_logit(x::Real)
     return logit(x + 0.25)
 end
 
@@ -796,7 +796,7 @@ function logit(x::Real)
     return log_base_10(abs(x * invert(1 - x)))
 end
 
-function _cannot_add_then_logit(x::Real)
+function _cannot_add_n_logit(x::Real)
     return x === -0.25 || x === 0.75
 end
 
@@ -1100,7 +1100,7 @@ function _get_applied_function_names(df::AbstractDataFrame; marker::AbstractStri
     before_marker = _find_original_end(new_colname; marker)
     after_marker = before_marker + length(marker) + 1
     function_names = SubString(new_colname, after_marker)
-    return _make_legible(function_names, " then "; marker)
+    return _make_legible(function_names, " n "; marker)
 end
 
 function _get_applied_function_names(gd; marker::AbstractString="__")
@@ -1108,7 +1108,7 @@ function _get_applied_function_names(gd; marker::AbstractString="__")
     before_marker = _find_original_end(new_colname; marker)
     after_marker = before_marker + length(marker) + 1
     function_names = SubString(new_colname, after_marker)
-    return _make_legible(function_names, " then "; marker)
+    return _make_legible(function_names, " n "; marker)
 end
 
 function _make_legible(snake_case, listing_split_on=" "; marker::AbstractString="__")

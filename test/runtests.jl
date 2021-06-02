@@ -33,51 +33,51 @@ end
     @test_throws DomainError Normalize.log_base_10(0.0)
     @test_throws DomainError Normalize.log_base_10(-1)
 
-    @test Normalize.add_then_log_base_10(98, -1) == 2.0
-    @test_throws ArgumentError Normalize.add_then_log_base_10(4, 5)
+    @test Normalize.add_n_log_base_10(98, -1) == 2.0
+    @test_throws ArgumentError Normalize.add_n_log_base_10(4, 5)
 
     @test isone(Normalize.natural_log(exp(1)))
     @test_throws DomainError Normalize.natural_log(0)
     @test_throws DomainError Normalize.natural_log(0.0)
     @test_throws DomainError Normalize.natural_log(-1)
 
-    @test Normalize.add_then_natural_log(exp(2), 1) == 2.0
-    @test_throws ArgumentError Normalize.add_then_natural_log(0, 1)
+    @test Normalize.add_n_natural_log(exp(2), 1) == 2.0
+    @test_throws ArgumentError Normalize.add_n_natural_log(0, 1)
 
     @test Normalize.square_root(4) == 2.0
     @test_throws DomainError Normalize.square_root(-1)
 
-    @test Normalize.add_then_square_root(3, 0) == 2.0
-    @test_throws ArgumentError Normalize.add_then_square_root(-1, 0)
+    @test Normalize.add_n_square_root(3, 0) == 2.0
+    @test_throws ArgumentError Normalize.add_n_square_root(-1, 0)
 
     @test Normalize.invert(-2) == -0.5
     @test_throws DivideError Normalize.invert(0)
     @test_throws DivideError Normalize.invert(0.0)
 
-    @test Normalize.add_then_invert(9, 0) == 0.1
-    @test_throws ArgumentError Normalize.add_then_invert(1.22, 1.32)
+    @test Normalize.add_n_invert(9, 0) == 0.1
+    @test_throws ArgumentError Normalize.add_n_invert(1.22, 1.32)
 
-    @test Normalize.square_then_invert(2) == 0.25
-    @test_throws DivideError Normalize.square_then_invert(0)
-    @test_throws DivideError Normalize.square_then_invert(0.0)
+    @test Normalize.square_n_invert(2) == 0.25
+    @test_throws DivideError Normalize.square_n_invert(0)
+    @test_throws DivideError Normalize.square_n_invert(0.0)
     
-    @test Normalize.Normalize.square_then_add_then_invert(2, 1) == 0.25
-    @test_throws ArgumentError Normalize.Normalize.square_then_add_then_invert(-2, -1)
-    @test_throws DivideError Normalize.Normalize.square_then_add_then_invert(0, -1)
-    @test_throws DivideError Normalize.Normalize.square_then_add_then_invert(0.0, -1.0)
+    @test Normalize.Normalize.square_n_add_n_invert(2, 1) == 0.25
+    @test_throws ArgumentError Normalize.Normalize.square_n_add_n_invert(-2, -1)
+    @test_throws DivideError Normalize.Normalize.square_n_add_n_invert(0, -1)
+    @test_throws DivideError Normalize.Normalize.square_n_add_n_invert(0.0, -1.0)
 
-    @test Normalize.square_root_then_invert(4) == 0.5
-    @test_throws DivideError Normalize.square_root_then_invert(0)
-    @test_throws DivideError Normalize.square_root_then_invert(0.0)
-    @test_throws DomainError Normalize.square_root_then_invert(-1)
+    @test Normalize.square_root_n_invert(4) == 0.5
+    @test_throws DivideError Normalize.square_root_n_invert(0)
+    @test_throws DivideError Normalize.square_root_n_invert(0.0)
+    @test_throws DomainError Normalize.square_root_n_invert(-1)
 
-    @test Normalize.add_then_square_root_then_invert(23, -1) == 0.2
-    @test_throws ArgumentError Normalize.add_then_square_root_then_invert(-1, 0)
+    @test Normalize.add_n_square_root_n_invert(23, -1) == 0.2
+    @test_throws ArgumentError Normalize.add_n_square_root_n_invert(-1, 0)
 
-    @test Normalize.square_root_then_add_then_invert(4, 1) == 0.5
-    @test_throws ArgumentError Normalize.square_root_then_add_then_invert(3, 4)
-    @test_throws DomainError Normalize.square_root_then_add_then_invert(-1, -2)
-    @test_throws DomainError Normalize.square_root_then_add_then_invert(0, -1)
+    @test Normalize.square_root_n_add_n_invert(4, 1) == 0.5
+    @test_throws ArgumentError Normalize.square_root_n_add_n_invert(3, 4)
+    @test_throws DomainError Normalize.square_root_n_add_n_invert(-1, -2)
+    @test_throws DomainError Normalize.square_root_n_add_n_invert(0, -1)
 end
 
 @testset "stretch transformations" begin
@@ -86,9 +86,9 @@ end
     @test_throws DomainError Normalize.logit(0)
     @test_throws DomainError Normalize.logit(0.0)
 
-    @test Normalize.add_then_logit(2.75) == Normalize.logit(3)
-    @test_throws DivideError Normalize.add_then_logit(0.75)
-    @test_throws DomainError Normalize.add_then_logit(-0.25)
+    @test Normalize.add_n_logit(2.75) == Normalize.logit(3)
+    @test_throws DivideError Normalize.add_n_logit(0.75)
+    @test_throws DomainError Normalize.add_n_logit(-0.25)
 end
 
 @testset "negative skew transformations" begin
@@ -98,14 +98,14 @@ end
     @test Normalize.cube(-3) == -27
     @test Normalize.antilog(2) == 100.0
 
-    @test Normalize.reflect_then_square_root(-1, 2) == 2.0
-    @test_throws ArgumentError Normalize.reflect_then_square_root(1, 0)
+    @test Normalize.reflect_n_square_root(-1, 2) == 2.0
+    @test_throws ArgumentError Normalize.reflect_n_square_root(1, 0)
 
-    @test isone(Normalize.reflect_then_log_base_10(0, 9))
-    @test_throws ArgumentError Normalize.reflect_then_log_base_10(1, 0)
+    @test isone(Normalize.reflect_n_log_base_10(0, 9))
+    @test_throws ArgumentError Normalize.reflect_n_log_base_10(1, 0)
 
-    @test Normalize.reflect_then_invert(0, 1) == 0.5
-    @test_throws ArgumentError Normalize.reflect_then_invert(1, 0)
+    @test Normalize.reflect_n_invert(0, 1) == 0.5
+    @test_throws ArgumentError Normalize.reflect_n_invert(1, 0)
 end
 
 @testset "check skews" begin
@@ -148,59 +148,59 @@ end
 @testset "get skew transformations" begin
     df = DataFrame(a=[-1, 1])
     @test isempty(get_positive_skew_transformations(df)["one arg"])
-    @test (Normalize.add_then_square_root, -1) in
+    @test (Normalize.add_n_square_root, -1) in
         get_positive_skew_transformations(df)["two args"]
-    @test (Normalize.add_then_square_root_then_invert, -1) in
+    @test (Normalize.add_n_square_root_n_invert, -1) in
     get_positive_skew_transformations(df)["two args"]
-    @test (Normalize.add_then_invert, -1) in
+    @test (Normalize.add_n_invert, -1) in
         get_positive_skew_transformations(df)["two args"]
-    @test (Normalize.square_then_add_then_invert, -1) in
+    @test (Normalize.square_n_add_n_invert, -1) in
         get_positive_skew_transformations(df)["two args"]
-    @test (Normalize.add_then_log_base_10, -1) in
+    @test (Normalize.add_n_log_base_10, -1) in
         get_positive_skew_transformations(df)["two args"]
-    @test (Normalize.add_then_natural_log, -1) in
+    @test (Normalize.add_n_natural_log, -1) in
         get_positive_skew_transformations(df)["two args"]
     df2 = DataFrame(a=[0.5, 0.75])
     @test get_positive_skew_transformations(df2)["one arg"] == [Normalize.square_root]
-    @test (Normalize.square_root_then_add_then_invert, 0.5) in
+    @test (Normalize.square_root_n_add_n_invert, 0.5) in
         get_positive_skew_transformations(df2)["two args"]
-    @test (Normalize.add_then_invert, 0.5) in
+    @test (Normalize.add_n_invert, 0.5) in
         get_positive_skew_transformations(df2)["two args"]
     @test get_positive_skew_transformations(df2)["two args"][end] ==
-        (Normalize.square_then_add_then_invert, 0.5)
-    @test (Normalize.add_then_log_base_10, 0.5) in
+        (Normalize.square_n_add_n_invert, 0.5)
+    @test (Normalize.add_n_log_base_10, 0.5) in
         get_positive_skew_transformations(df2)["two args"]
-    @test (Normalize.add_then_natural_log, 0.5) in
+    @test (Normalize.add_n_natural_log, 0.5) in
         get_positive_skew_transformations(df2)["two args"]
     df3 = DataFrame(a=[3.14, 4])
     @test Normalize.square_root in get_positive_skew_transformations(df3)["one arg"]
-    @test Normalize.square_root_then_invert in
+    @test Normalize.square_root_n_invert in
         get_positive_skew_transformations(df3)["one arg"]
     @test Normalize.invert in get_positive_skew_transformations(df3)["one arg"]
-    @test Normalize.square_then_invert in get_positive_skew_transformations(df3)["one arg"]
+    @test Normalize.square_n_invert in get_positive_skew_transformations(df3)["one arg"]
     @test Normalize.log_base_10 in get_positive_skew_transformations(df3)["one arg"]
     @test Normalize.natural_log in get_positive_skew_transformations(df3)["one arg"]
     @test isempty(get_positive_skew_transformations(df3)["two args"])
     df4 = DataFrame(a=[0, -1])
-    @test Normalize.square_then_add_then_invert ∉
+    @test Normalize.square_n_add_n_invert ∉
         get_positive_skew_transformations(df4)["two args"]
 
     @test Normalize.square in get_negative_skew_transformations(df)["one arg"]
     @test Normalize.cube in get_negative_skew_transformations(df)["one arg"]
     @test Normalize.antilog in get_negative_skew_transformations(df)["one arg"]
-    @test (Normalize.reflect_then_square_root, 1) in
+    @test (Normalize.reflect_n_square_root, 1) in
         get_negative_skew_transformations(df)["two args"]
-    @test (Normalize.reflect_then_log_base_10, 1) in
+    @test (Normalize.reflect_n_log_base_10, 1) in
         get_negative_skew_transformations(df)["two args"]
-    @test (Normalize.reflect_then_invert, 1) in
+    @test (Normalize.reflect_n_invert, 1) in
         get_negative_skew_transformations(df)["two args"]
 
     @test get_stretch_skew_transformations(df3)["one arg"][begin] == 
-        Normalize.add_then_logit
+        Normalize.add_n_logit
     @test get_stretch_skew_transformations(df3)["one arg"][end] == Normalize.logit
     @test isempty(get_stretch_skew_transformations(df3)["two args"])
     @test Normalize.logit ∉ get_stretch_skew_transformations(df)["one arg"]
-    @test Normalize.add_then_logit ∉ get_stretch_skew_transformations(df2)["one arg"]
+    @test Normalize.add_n_logit ∉ get_stretch_skew_transformations(df2)["one arg"]
 
     df5 = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13])
     transformations = get_skew_transformations(df5)
@@ -304,14 +304,14 @@ end
     check_skewness_kurtosis(Normalize.square, df)
     @test_throws ArgumentError apply(Normalize.square, df; marker="-")
     @test_throws ArgumentError apply(Normalize.square, df; marker="-a")
-    check_skewness_kurtosis(Normalize.add_then_invert, df, -0.5)
-    @test_throws ArgumentError apply(Normalize.add_then_invert, df, -0.5; marker="mark")
-    @test_throws ArgumentError apply(Normalize.add_then_invert, df, -0.5; marker="~hi?")
+    check_skewness_kurtosis(Normalize.add_n_invert, df, -0.5)
+    @test_throws ArgumentError apply(Normalize.add_n_invert, df, -0.5; marker="mark")
+    @test_throws ArgumentError apply(Normalize.add_n_invert, df, -0.5; marker="~hi?")
 
         df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
     gd = groupby(df2, :group)
     check_skewness_kurtosis(Normalize.cube, gd)
-    check_skewness_kurtosis(Normalize.reflect_then_invert, gd, 8)
+    check_skewness_kurtosis(Normalize.reflect_n_invert, gd, 8)
 end
 
 @testset "record transformations" begin
@@ -340,7 +340,7 @@ end
         record1 = record(df, [(func, func_other_arg)]; normal_ratio)
         normal_vars = record1["normalized"]
         @test length(normal_vars) == ncol(record1["normal gdf"][1])
-        func_name = join(split("$func", "_then_"), " and ")
+        func_name = join(split("$func", "_n_"), " and ")
         for nt1 in normal_vars[func_name]
             @test nt1[:name] == "a"
             @test haskey(nt1, :skewness_stat)
@@ -355,7 +355,7 @@ end
             @test df isa AbstractDataFrame
         end
         @test isempty(record1["nonnormal gdf"])
-    end
+            end
         
     function check_records(df::AbstractDataFrame, transform_series; normal_ratio=2)
         check_record(df, transform_series["one arg"]; normal_ratio)
@@ -387,7 +387,7 @@ end
         normal_vars = record1["normalized"]
         @test length(normal_vars) == length(valuecols(record1["normal gdf"][1]))
         no_under = join(split("$func", "_"), " ")
-        func_name = join(split(no_under, " then "), " and ")
+        func_name = join(split(no_under, " n "), " and ")
         for (index, nt1) in enumerate(record1["normalized"][func_name])
             @test nt1[:name] == "a (group = $index)"
             @test haskey(nt1, :skewness_stat)
@@ -397,33 +397,33 @@ end
             @test haskey(nt1, :kurtosis_error)
             @test haskey(nt1, :kurtosis_ratio)
         end
-
+        
         for gd in record1["normal gdf"]
             @test gd isa GroupedDataFrame
         end
         @test isempty(record1["nonnormal gdf"])
     end
-
+    
     function check_records(gd, transform_series; normal_ratio=2)
         check_record(gd, transform_series["one arg"]; normal_ratio)
         check_record(gd, transform_series["two args"]...; normal_ratio)
     end
 
     check_record(df, Normalize.square)
-    check_record(df, Normalize.add_then_invert, -0.5, normal_ratio=3)
-    functions = Dict(
+    check_record(df, Normalize.add_n_invert, -0.5, normal_ratio=3)
+        functions = Dict(
         "one arg" => Normalize.square,
-        "two args" => (Normalize.add_then_invert, -0.5),
+        "two args" => (Normalize.add_n_invert, -0.5),
     )
     check_records(df, functions, normal_ratio=3)
 
     df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
     gd = groupby(df2, :group)
     check_record(gd, Normalize.invert)
-    check_record(gd, Normalize.reflect_then_square_root, 8)
+    check_record(gd, Normalize.reflect_n_square_root, 8)
     functions2 = Dict(
         "one arg" => Normalize.invert,
-        "two args" => (Normalize.reflect_then_square_root, 8),
+        "two args" => (Normalize.reflect_n_square_root, 8),
     )
     check_records(gd, functions)
 end
