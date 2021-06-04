@@ -20,15 +20,17 @@ Download the project through Code, or through [Git](https://git-scm.com/download
 $ git clone https://github.com/muhadamanhuri/Normalize.jl.git
 ```
 
-Run [Julia](https://julialang.org/downloads/) in the [command line](https://julialang.org/downloads/platform/):
+Open [`julia`](https://julialang.org/downloads/), or run in the [command line](https://julialang.org/downloads/platform/). Change the working directory to the project path:
 
 ```
-$ cd path/to/project/
-
 $ julia
+
+julia> ;
+
+shell> cd path/to/project/
 ```
 
-Activate the project environment, and add the dependencies:
+Press the Backspace key. Activate the project environment, and add the dependencies:
 
 ```
 julia> import Pkg
@@ -63,9 +65,6 @@ julia> using Normalize
 
 #Excluding the first line, displays all function names in the module.
 julia> for name in names(Normalize); println(name); end
-
-#Gets info of a function.
-julia> ?<function name>
 ```
 
 ## Example
@@ -150,7 +149,7 @@ Kurtosis Ratio: 1.448
 ## Todos
 
 - Docstring examples
-- Function to normalize multiple times
+- Normalize iteratively on subsequent transformations
 - Optimize performance
 - Overflow warning
 
