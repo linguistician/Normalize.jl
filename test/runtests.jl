@@ -1,14 +1,22 @@
 using DataFrames, Normalize, Test
 
 @testset "convert tabular data to dataframe" begin
+    function test_dir()
+        path = pwd()
+        if endswith(path, "test")
+            return view(path, 1:findfirst("test", path)[end])
+        else
+            return "$(path)/test"
+        end
+    end
     example = DataFrame(a=[1, 2, 3, 4, 5], b=[6, 7, 8, 9, 10])
-    @test tabular_to_dataframe("test/dummy/test.csv") == example
-    @test tabular_to_dataframe("test/dummy/test.xlsx", "test") == example
-    @test tabular_to_dataframe("test/dummy/test.xls", "test") == example
-    @test tabular_to_dataframe("test/dummy/test.ods", "test") == example
-    @test tabular_to_dataframe("test/dummy/test.sav") == example
-    @test tabular_to_dataframe("test/dummy/co3.dta") isa DataFrame && 
-        tabular_to_dataframe("test/dummy/co3.dta") != DataFrame()
+    @test tabular_to_dataframe("$(test_dir())/dummy/test.csv") == example
+    @test tabular_to_dataframe("$(test_dir())/dummy/test.xlsx", "test") == example
+    @test tabular_to_dataframe("$(test_dir())/dummy/test.xls", "test") == example
+    @test tabular_to_dataframe("$(test_dir())/dummy/test.ods", "test") == example
+    @test tabular_to_dataframe("$(test_dir())/dummy/test.sav") == example
+    @test tabular_to_dataframe("$(test_dir())/dummy/co3.dta") isa DataFrame && 
+        tabular_to_dataframe("$(test_dir())/dummy/co3.dta") != DataFrame()
     @test tabular_to_dataframe("fake.doc") == DataFrame()
 end
 
@@ -18,10 +26,10 @@ end
     @test replace_missing!(DataFrame(a=[missing]), 1)[1, 1] === missing
     @test replace_missing!(DataFrame(), 1) == DataFrame()
 end
-
+    
 @testset "convert columns of eltype String or Any to float" begin
     @test sheetcols_to_float!(DataFrame(a=["1", " "]), blank_to=2.2) ==
-        DataFrame(a=[1, 2.2])
+DataFrame(a=[1, 2.2])
     @test sheetcols_to_float!(DataFrame(a=[1.23, " "]), blank_to=1) ==
         DataFrame(a=[1.23, 1.0])
     @test sheetcols_to_float!(DataFrame(a=1:4), blank_to=5.1) == DataFrame(a=1:4)
@@ -103,7 +111,7 @@ end
 
     @test isone(Normalize.reflect_n_log_base_10(0, 9))
     @test_throws ArgumentError Normalize.reflect_n_log_base_10(1, 0)
-
+    
     @test Normalize.reflect_n_invert(0, 1) == 0.5
     @test_throws ArgumentError Normalize.reflect_n_invert(1, 0)
 end
@@ -149,7 +157,7 @@ end
     df = DataFrame(a=[-1, 1])
     @test isempty(get_positive_skew_transformations(df)["one arg"])
     @test (Normalize.add_n_square_root, -1) in
-        get_positive_skew_transformations(df)["two args"]
+    get_positive_skew_transformations(df)["two args"]
     @test (Normalize.add_n_square_root_n_invert, -1) in
     get_positive_skew_transformations(df)["two args"]
     @test (Normalize.add_n_invert, -1) in
@@ -261,37 +269,37 @@ end
         for s in keys(skew), k in keys(kurt)
             @test skew[s] == quant[s]
             @test kurt[k] == quant[k]
-        end
+            end
     end
 
     function check_skewness_kurtosis(func, gd)
-        applied = apply(func, gd)
+    applied = apply(func, gd)
         df_temp = DataFrame(applied[:transformed_gdf])
         for pos in (1, 5)
             if pos == 5
-                quant = applied[:skewness_and_kurtosis][2]
-            else
+        quant = applied[:skewness_and_kurtosis][2]
+        else
                 quant = applied[:skewness_and_kurtosis][1]
             end
             skew = skewness(df_temp[pos:(pos + 3), 2])
             kurt = kurtosis(df_temp[pos:(pos + 3), 2])
             for s in keys(skew), k in keys(kurt)
-                @test skew[s] == quant[s]
+    @test skew[s] == quant[s]
                 @test kurt[k] == quant[k]
             end
         end
     end
-
+        
     function check_skewness_kurtosis(func, gd, func_other_arg)
-        applied = apply(func, gd, func_other_arg)
+            applied = apply(func, gd, func_other_arg)
         df_temp = DataFrame(applied[:transformed_gdf])
-        for pos in (1, 5)
+                for pos in (1, 5)
             if pos == 5
-                quant = applied[:skewness_and_kurtosis][2]
+            quant = applied[:skewness_and_kurtosis][2]
             else
                 quant = applied[:skewness_and_kurtosis][1]
             end
-            skew = skewness(df_temp[pos:(pos + 3), 2])
+                skew = skewness(df_temp[pos:(pos + 3), 2])
             kurt = kurtosis(df_temp[pos:(pos + 3), 2])
             for s in keys(skew), k in keys(kurt)
                 @test skew[s] == quant[s]
@@ -307,7 +315,7 @@ end
     check_skewness_kurtosis(Normalize.add_n_invert, df, -0.5)
     @test_throws ArgumentError apply(Normalize.add_n_invert, df, -0.5; marker="mark")
     @test_throws ArgumentError apply(Normalize.add_n_invert, df, -0.5; marker="~hi?")
-
+            
     df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
     gd = groupby(df2, :group)
     check_skewness_kurtosis(Normalize.cube, gd)
@@ -355,14 +363,14 @@ end
             @test df isa AbstractDataFrame
         end
         @test isempty(record1["nonnormal gdf"])
-    end
+            end
         
     function check_records(df::AbstractDataFrame, transform_series; normal_ratio=2)
         check_record(df, transform_series["one arg"]; normal_ratio)
         check_record(df, transform_series["two args"]...; normal_ratio)
     end
         
-    function check_record(gd, func; normal_ratio=2)
+        function check_record(gd, func; normal_ratio=2)
         record1 = record(gd, Function[func]; normal_ratio)
         normal_vars = record1["normalized"]
         @test length(normal_vars) == length(valuecols(record1["normal gdf"][1]))
@@ -377,14 +385,14 @@ end
         end
 
         for gd in record1["normal gdf"]
-            @test gd isa GroupedDataFrame
+    @test gd isa GroupedDataFrame
         end
         @test isempty(record1["nonnormal gdf"])
     end
-
+        
     function check_record(gd, func, func_other_arg; normal_ratio=2)
         record1 = record(gd, [(func, func_other_arg)]; normal_ratio)
-        normal_vars = record1["normalized"]
+    normal_vars = record1["normalized"]
         @test length(normal_vars) == length(valuecols(record1["normal gdf"][1]))
         no_under = join(split("$func", "_"), " ")
         func_name = join(split(no_under, " n "), " and ")
@@ -411,7 +419,7 @@ end
 
     check_record(df, Normalize.square)
     check_record(df, Normalize.add_n_invert, -0.5, normal_ratio=3)
-    functions = Dict(
+        functions = Dict(
         "one arg" => Normalize.square,
         "two args" => (Normalize.add_n_invert, -0.5),
     )
@@ -425,5 +433,5 @@ end
         "one arg" => Normalize.invert,
         "two args" => (Normalize.reflect_n_square_root, 8),
     )
-    check_records(gd, functions)
-end
+        check_records(gd, functions)
+end            

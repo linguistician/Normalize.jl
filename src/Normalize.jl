@@ -1251,7 +1251,7 @@ function _is_from_csv_excel_or_opendoc(col)
 end
 
 function _is_from_csv(col)
-    nonblanks = filter(cell -> cell !== " ", col)
+    nonblanks = col[col .!== " "]
     return eltype(nonblanks) === String
 end
 
