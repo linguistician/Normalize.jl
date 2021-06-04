@@ -242,7 +242,7 @@ end
 @testset "apply transformations" begin
     function check_skewness_kurtosis(func, df::AbstractDataFrame)
         applied = apply(func, df)
-        col_temp = applied[:transformed_gdf][1]
+        col_temp = applied[:transformed_gdf][:, 1]
         skew = skewness(col_temp)
         kurt = kurtosis(col_temp)
         quant = applied[:skewness_and_kurtosis][1]
@@ -254,7 +254,7 @@ end
 
     function check_skewness_kurtosis(func, df::AbstractDataFrame, func_other_arg)
         applied = apply(func, df, func_other_arg)
-        col_temp = applied[:transformed_gdf][1]
+        col_temp = applied[:transformed_gdf][:, 1]
         skew = skewness(col_temp)
         kurt = kurtosis(col_temp)
         quant = applied[:skewness_and_kurtosis][1]
@@ -308,7 +308,7 @@ end
     @test_throws ArgumentError apply(Normalize.add_n_invert, df, -0.5; marker="mark")
     @test_throws ArgumentError apply(Normalize.add_n_invert, df, -0.5; marker="~hi?")
 
-        df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
+    df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
     gd = groupby(df2, :group)
     check_skewness_kurtosis(Normalize.cube, gd)
     check_skewness_kurtosis(Normalize.reflect_n_invert, gd, 8)
@@ -355,13 +355,13 @@ end
             @test df isa AbstractDataFrame
         end
         @test isempty(record1["nonnormal gdf"])
-            end
+    end
         
     function check_records(df::AbstractDataFrame, transform_series; normal_ratio=2)
         check_record(df, transform_series["one arg"]; normal_ratio)
-    check_record(df, transform_series["two args"]...; normal_ratio)
+        check_record(df, transform_series["two args"]...; normal_ratio)
     end
-
+        
     function check_record(gd, func; normal_ratio=2)
         record1 = record(gd, Function[func]; normal_ratio)
         normal_vars = record1["normalized"]
@@ -411,7 +411,7 @@ end
 
     check_record(df, Normalize.square)
     check_record(df, Normalize.add_n_invert, -0.5, normal_ratio=3)
-        functions = Dict(
+    functions = Dict(
         "one arg" => Normalize.square,
         "two args" => (Normalize.add_n_invert, -0.5),
     )

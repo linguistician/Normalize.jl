@@ -73,7 +73,7 @@ end
 function _diff_pair(df)
     var = names(df)[1]
     var2 = names(df)[2]
-    return "$(var2)_minus_$(var)" => df[var2] .- df[var]
+    return "$(var2)_minus_$(var)" => df[!, var2] .- df[!, var]
 end
 
 """
@@ -122,7 +122,7 @@ end
 function _get_skewness_kurtosis(gd)
     gd_new = combine(gd, valuecols(gd) .=> x -> [skewness(x), kurtosis(x),]; ungroup=false)
     return [
-        merge(gd_new[group][var]...)
+        merge(gd_new[group][!, var]...)
         for group in keys(gd_new)
             for var in valuecols(gd_new)
     ]
@@ -1052,7 +1052,7 @@ function _select_finite(func, gd)
     grouping = groupcols(gd)
     gd = select(gd, valuecols(gd) .=> ByRow(func); ungroup=false)
     df_example = DataFrame(gd)
-    if _contains(isinf, df_example[Not(grouping)])
+    if _contains(isinf, df_example[!, Not(grouping)])
         throw(OverflowError("Transforming gd results in a value too large to represent."))
     else
         return gd
@@ -1065,7 +1065,7 @@ function _select_finite(func, gd, func_other_arg)
         gd, valuecols(gd) .=> ByRow(x -> func(x, func_other_arg)); ungroup=false
     )
     df_example = DataFrame(gd)
-    if _contains(isinf, df_example[Not(grouping)])
+    if _contains(isinf, df_example[!, Not(grouping)])
         throw(OverflowError("Transforming gd results in a value too large to represent."))
     else
         return gd
@@ -1343,7 +1343,7 @@ function _describe_var(gd, group_column, value_column)
     tag = (
         name="$varname ($grouping)",
     )
-    skews_and_kurts = gd[group_column][value_column]
+    skews_and_kurts = gd[group_column][!, value_column]
     return merge(tag, skews_and_kurts...)
 end
 
@@ -1459,7 +1459,7 @@ function _store_groupcols(df, gdfs)
     gd_example = gdfs[1]
     df_example = DataFrame(gd_example)
     for group in groupcols(gd_example)
-        df = hcat(df, df_example[[group]])
+        df = hcat(df, df_example[!, [group]])
     end
 
     return df
@@ -1469,7 +1469,7 @@ function _store_valuecols(df, gdfs)
     for grouped in gdfs
         df_convert = DataFrame(grouped)
         for var in valuecols(grouped)
-            df = hcat(df, df_convert[[var]])
+            df = hcat(df, df_convert[!, [var]])
         end
     end
 
