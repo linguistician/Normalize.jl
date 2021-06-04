@@ -23,9 +23,7 @@ $ git clone https://github.com/muhadamanhuri/Normalize.jl.git
 Run [Julia](https://julialang.org/downloads/) in the [command line](https://julialang.org/downloads/platform/):
 
 ```
-$ cd path/to/project/folder/
-
-$ cd ..
+$ cd path/to/project/
 
 $ julia
 ```
@@ -35,11 +33,7 @@ Activate the project environment, and add the dependencies:
 ```
 julia> import Pkg
 
-#If downloaded through Code
-julia> Pkg.activate("Normalize.jl-main")
-
-#If downloaded through Git
-julia> Pkg.activate("Normalize.jl")
+julia> Pkg.activate(".")
 
 julia> Pkg.instantiate()
 ```
@@ -58,7 +52,7 @@ Click the code cells, and click Run.
 
 ### Module
 
-To download only the module, add the package in `julia`. It is recommended to create a project environment beforehand:
+To download only the module, add it in `julia`. It is recommended to create a project environment beforehand:
 
 ```
 julia> import Pkg; Pkg.activate("<project name>")
