@@ -323,7 +323,7 @@ end
     check_skewness_kurtosis(Normalize.reflect_n_invert, gd, 8)
 end
     
-    @testset "record transformations" begin
+@testset "record transformations" begin
     df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13])
     function check_record(df::AbstractDataFrame, func; normal_ratio=2)
         record1 = record(df, Function[func]; normal_ratio)
@@ -367,7 +367,7 @@ end
     end
 
     function check_records(df::AbstractDataFrame, transform_series; normal_ratio=2)
-        check_record(df, transform_series["one arg"]; normal_ratio)
+    check_record(df, transform_series["one arg"]; normal_ratio)
         check_record(df, transform_series["two args"]...; normal_ratio)
     end
 
@@ -423,7 +423,7 @@ end
     functions = Dict(
         "one arg" => Normalize.square,
         "two args" => (Normalize.add_n_invert, -0.5),
-    )
+            )
     check_records(df, functions, normal_ratio=3)
 
     df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
