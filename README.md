@@ -63,8 +63,8 @@ julia> Pkg.add(url="https://github.com/muhadamanhuri/Normalize.jl")
 
 julia> using Normalize
 
-#Excluding the first line, displays all function names in the module.
-julia> for name in names(Normalize); println(name); end
+#Displays all function names in the module.
+julia> for name in names(Normalize)[2:end]; println(name); end
 ```
 
 ## Example

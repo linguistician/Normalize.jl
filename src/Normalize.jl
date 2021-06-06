@@ -449,6 +449,7 @@ end
 # min < 0 
 # (add_n_square_root, add_n_square_root_n_invert, add_n_invert,
 # add_n_log_base_10, add_n_natural_log, square_n_add_n_invert)
+
 """
     add_n_square_root(x::Real, min::Real)
 
@@ -1406,6 +1407,8 @@ Export normal data from a dictionary `findings` to a CSV file in a string `path`
 
 If `path` already exists (i.e., a file has the same name), then the file will be
 overwritten. Otherwise, a new file will be created.
+
+`findings` has a key `"normal gdf"` with a collection value of (grouped) data frames.
 
 If `dependent` is `true`, then a column of zeros will also be created in the CSV file for
 dependent testing of data with only one group and two dependent variables.
