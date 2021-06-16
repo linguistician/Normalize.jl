@@ -16,7 +16,7 @@ export get_skew_transformations, get_stretch_skew_transformations
 export kurtosis, kurtosis_error, kurtosis_stat, kurtosis_variance
 export print_findings, print_skewness_kurtosis
 export skewness, skewness_error, skewness_stat, skewness_variance
-export replace_missing!, sheetcol_to_float!
+export replace_missing!, replace_blank!
 export normal_to_csv, tabular_to_dataframe
 
 """
@@ -1796,10 +1796,10 @@ function tabular_to_dataframe(path, sheet::AbstractString="")
 end
 
 """
-    sheetcol_to_float!(df, colname; blank_to::Real) -> AbstractVector
+    replace_blank!(df, colname; new_value::Real) -> AbstractVector
 
-Convert a column named `colname`  in a data frame `df` with element type `String` or `Any`
-to `Float64`. Blank values (i.e., " ") will be replaced with `blank_to` before conversion.
+Replace all occurrences of blank values (i.e., " ") with `new_value` in a column named
+`colname` in a data frame `df`. The column will be converted to element type `Float64`.
 
 If a value cannot be converted to `Float64`, an error is raised.
 
@@ -1813,17 +1813,17 @@ julia> df = DataFrame(a=[" ", "7"], b=[6.39, " "], c=[" ", " "])
    1 │         6.39
    2 │ 7
 
-julia> sheetcol_to_float!(df, :a, blank_to=1.25)
+julia> replace_blank!(df, :a, new_value=1.25)
 2-element Vector{Float64}:
  1.25
  7.0
 
-julia> sheetcol_to_float!(df, "b", blank_to=8)
+julia> replace_blank!(df, "b", new_value=8)
 2-element Vector{Float64}:
  6.39
  8.0
 
-julia> sheetcol_to_float!(df, 3, blank_to=5)
+julia> replace_blank!(df, 3, new_value=5)
 2-element Vector{Float64}:
  5.0
  5.0
@@ -1837,14 +1837,14 @@ julia> df
    2 │    7.0      8.0       5.0
 ```
 """
-function sheetcol_to_float!(df, colname; blank_to::Real)
+function replace_blank!(df, colname; new_value::Real)
     col = df[!, colname]
     if _is_from_csv_excel_or_opendoc(col)
         if _is_from_csv(col)
-            replace!(col, " " => "$(blank_to)")
+            replace!(col, " " => "$(new_value)")
             df[!, colname] = parse.(Float64, col)
         else
-            replace!(col, " " => blank_to)
+            replace!(col, " " => new_value)
             df[!, colname] = convert(Vector{Float64}, col)
         end
     end
@@ -1864,7 +1864,7 @@ end
 """
     replace_missing!(df, colname; new_value::Real) -> AbstractVector
 
-Replace occurrences of `missing` with `new_value` in a column named `colname` in a data
+Replace all occurrences of `missing` with `new_value` in a column named `colname` in a data
 frame `df`. The column will be converted to element type `Float64`.
 
 If a value cannot be converted to `Float64`, an error is raised.

@@ -30,14 +30,14 @@ end
     @test replace_missing!(DataFrame(a=[]), 1, new_value=1) == []
 end
     
-@testset "convert columns of eltype String or Any to float" begin
-    @test sheetcol_to_float!(DataFrame(a=["1", " "]), :a, blank_to=2.2) == [1, 2.2]
-    @test_throws ArgumentError replace_missing!(
+@testset "replace blank" begin
+    @test replace_blank!(DataFrame(a=["1", " "]), :a, new_value=2.2) == [1, 2.2]
+    @test_throws ArgumentError replace_blank!(
         DataFrame(a=["hi", " "]), "a", new_value=2.13
     )
-    @test sheetcol_to_float!(DataFrame(a=[1.23, " "]), "a", blank_to=1) == [1.23, 1.0]
-    @test sheetcol_to_float!(DataFrame(a=[" "]), 1, blank_to=1) == [1]
-    @test sheetcol_to_float!(DataFrame(a=1:4), 1, blank_to=5.1) == 1:4
+    @test replace_blank!(DataFrame(a=[1.23, " "]), "a", new_value=1) == [1.23, 1.0]
+    @test replace_blank!(DataFrame(a=[" "]), 1, new_value=1) == [1]
+    @test replace_blank!(DataFrame(a=1:4), 1, new_value=5.1) == 1:4
 end
 
 @testset "positive skew transformations" begin
@@ -136,7 +136,7 @@ end
     nt2 = [(skewness_ratio = -2.7,), (skewness_ratio = 0,)]
     @test are_positive_skews(nt2) == false
 end
-
+    
 @testset "check normal" begin
     @test is_normal(-1.23, 0.98)
     @test is_normal(0.63, -1.98)
@@ -146,11 +146,11 @@ end
     
     nt = [
         (skewness_ratio = 1.19, kurtosis_ratio = 0.55,), 
-        (skewness_ratio = 0.98, kurtosis_ratio = 1.2,),
+    (skewness_ratio = 0.98, kurtosis_ratio = 1.2,),
     ]
     @test are_normal(nt)
     nt2 = [
-        (skewness_ratio = 1.19, kurtosis_ratio = 2.2,),
+(skewness_ratio = 1.19, kurtosis_ratio = 2.2,),
         (skewness_ratio = 0.98, kurtosis_ratio = 1.2,),
     ]
     @test are_normal(nt2) == false
