@@ -16,7 +16,7 @@ export get_skew_transformations, get_stretch_skew_transformations
 export kurtosis, kurtosis_error, kurtosis_stat, kurtosis_variance
 export print_findings, print_skewness_kurtosis
 export skewness, skewness_error, skewness_stat, skewness_variance
-export replace_missing!, replace_blank!
+export replace_blank!, replace_missing!
 export normal_to_csv, tabular_to_dataframe
 
 """
@@ -2084,99 +2084,6 @@ Print the normal skewness and kurtosis in a dictionary `findings`.
 
 # Examples
 ```jldoctest
-julia> df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
-
-julia> results = normalize(df);
-
-julia> print_findings(results)
-APPLIED: cube
---------
-Variable: a
-Skewness Statistic: -0.678
-Skewness Std. Error: 0.913
-Skewness Ratio: -0.743
-
-Kurtosis Statistic: 0.669
-Kurtosis Std. Error: 2.0
-Kurtosis Ratio: 0.334
-
-
-APPLIED: square
---------
-Variable: a
-Skewness Statistic: -1.315
-Skewness Std. Error: 0.913
-Skewness Ratio: -1.44
-
-Kurtosis Statistic: 2.149
-Kurtosis Std. Error: 2.0
-Kurtosis Ratio: 1.074
-
-
-APPLIED: antilog
---------
-Variable: a
-Skewness Statistic: 0.852
-Skewness Std. Error: 0.913
-Skewness Ratio: 0.933
-
-Kurtosis Statistic: -0.029
-Kurtosis Std. Error: 2.0
-Kurtosis Ratio: -0.014
-
-
-APPLIED: reflect and invert
---------
-Variable: a
-Skewness Statistic: -0.626
-Skewness Std. Error: 0.913
-Skewness Ratio: -0.686
-
-Kurtosis Statistic: 0.843
-Kurtosis Std. Error: 2.0
-Kurtosis Ratio: 0.422
-
-
-APPLIED: reflect and log base 10
---------
-Variable: a
-Skewness Statistic: 1.567
-Skewness Std. Error: 0.913
-Skewness Ratio: 1.716
-
-Kurtosis Statistic: 2.896
-Kurtosis Std. Error: 2.0
-Kurtosis Ratio: 1.448
-
-
-
-julia> results2
-ERROR: UndefVarError: results2 not defined
-
-julia> df2 = DataFrame(group=[1, 1, 1, 1, 2, 2, 2, 2], a=1:8);
-
-julia> results2 = apply(Normalize.add_n_invert, groupby(df2, :group), 1);
-
-julia> results2[:transformed_gdf]
-GroupedDataFrame with 2 groups based on key: group
-First Group (4 rows): group = 1
- Row │ group  a__add_n_invert
-     │ Int64  Float64
-─────┼────────────────────────
-   1 │     1         1.0
-   2 │     1         0.5
-   3 │     1         0.333333
-   4 │     1         0.25
-⋮
-Last Group (4 rows): group = 2
- Row │ group  a__add_n_invert
-     │ Int64  Float64
-─────┼────────────────────────
-   1 │     2         0.2
-   2 │     2         0.166667
-   3 │     2         0.142857
-   4 │     2         0.125
-
 julia> df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
 
 julia> results = normalize(df);
