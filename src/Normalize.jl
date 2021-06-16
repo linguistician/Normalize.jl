@@ -1,5 +1,6 @@
 module Normalize
 
+using Base: String
 using CSV
 using DataFrames
 using ExcelFiles
@@ -9,13 +10,13 @@ using StatFiles
 
 export apply, normalize, record, record_all
 export are_negative_skews, are_positive_skews, is_negative_skew, is_positive_skew
-export are_nonnormal, are_normal, is_normal
+export are_normal, is_normal
 export get_negative_skew_transformations, get_positive_skew_transformations
 export get_skew_transformations, get_stretch_skew_transformations
 export kurtosis, kurtosis_error, kurtosis_stat, kurtosis_variance
 export print_findings, print_skewness_kurtosis
 export skewness, skewness_error, skewness_stat, skewness_variance
-export replace_missing!, sheetcols_to_float!
+export replace_missing!, sheetcol_to_float!
 export normal_to_csv, tabular_to_dataframe
 
 """
@@ -37,6 +38,98 @@ A dictionary is returned with the following key-value pairs:
     skewnesses and kurtoses for each normal transformation key
 - `"normal gdf"` => a list of transformed (grouped) data frames whose data are normal
 - `"nonnormal gdf"` => a list of transformed (grouped) data frames whose data are nonnormal
+
+!!! compat "Julia 1.5"
+    `normalize` uses `mergewith!`, which requires at least Julia 1.5.
+
+!!! compat "Julia 1.5"
+    `normalize` uses `contains`, which requires at least Julia 1.5.
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
+
+julia> results = normalize(df);
+
+julia> keys(results["normalized"])
+KeySet for a Dict{Any, Any} with 5 entries. Keys:
+  "cube"
+  "square"
+  "antilog"
+  "reflect and invert"
+  "reflect and log base 10"
+
+julia> length(results["normal gdf"])
+5
+
+julia> results["normal gdf"][1]
+5×1 DataFrame
+ Row │ a__square
+     │ Float64
+─────┼───────────
+   1 │    0.25
+   2 │    6.1009
+   3 │    6.4516
+   4 │    8.4681
+   5 │    9.7969
+
+julia> pairs(results["normalized"]["square"][1])
+pairs(::NamedTuple) with 7 entries:
+  :name           => "a"
+  :skewness_stat  => -1.315
+  :skewness_error => 0.913
+  :skewness_ratio => -1.44
+  :kurtosis_stat  => 2.149
+  :kurtosis_error => 2.0
+  :kurtosis_ratio => 1.074
+
+julia> typeof(results["nonnormal gdf"][1])
+DataFrame
+
+julia> df2 = DataFrame(b=[6.24, 6.34, 6.39, 2.6, 8.35], c=[5.5, 5.8, 5, 5, 7.5]);
+
+julia> results2 = normalize(df2, dependent=true);
+
+julia> names(results2["normal gdf"][1])
+1-element Vector{String}:
+ "c_minus_b__add_n_logit"
+
+julia> df3 = DataFrame(g=[1,2,1,2,1,2,1,2], kel=[5.5,5.8,5,5,7.5,1.08,0.94,0.56]);
+
+julia> results3 = normalize(groupby(df3, :g));
+
+julia> results3["nonnormal gdf"]
+1-element Vector{Any}:
+ GroupedDataFrame with 2 groups based on key: g
+First Group (4 rows): g = 1
+ Row │ g      kel__add_n_logit
+     │ Int64  Float64
+─────┼─────────────────────────
+   1 │     1         0.0829742
+   2 │     1         0.0917704
+   3 │     1         0.0599979
+   4 │     1         0.796793
+⋮
+Last Group (4 rows): g = 2
+ Row │ g      kel__add_n_logit
+     │ Int64  Float64
+─────┼─────────────────────────
+   1 │     2         0.078464
+   2 │     2         0.0917704
+   3 │     2         0.605338
+   4 │     2         0.629731
+
+julia> names(results3["normal gdf"][1])
+2-element Vector{String}:
+ "g"
+ "kel__square_root"
+
+julia> for nt in results3["normalized"]["square root"]
+           println(nt[:name])
+       end
+kel (g = 1)
+kel (g = 2)
+```
 """
 function normalize(
     gdf; normal_ratio::Real=2, dependent::Bool=false, marker::AbstractString="__"
@@ -84,9 +177,37 @@ ratios are not within the range of ±`normal_ratio`.
 
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require two arguments
+- `"two args"` => a collection of tuples containing functions that require two arguments,
+    and their second arguments
 
-Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values.
+!!! compat "Julia 1.5"
+    `get_skew_transformations` uses `mergewith!`, which requires at least Julia 1.5.
+
+Throw `ArgumentError` if there is a column that does not have more than 3 non-`NaN` values.
+
+See also: [`get_negative_skew_transformations`](@ref),
+[`get_positive_skew_transformations`](@ref), [`get_stretch_skew_transformations`](@ref)
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[1.074, 0.058, 2.321, 0.466, 0.226, 0.171, 0.439]);
+
+julia> transformations = get_skew_transformations(df);
+
+julia> transformations["one arg"]
+3-element Vector{Function}:
+ square_root (generic function with 1 method)
+ add_n_logit (generic function with 1 method)
+ logit (generic function with 1 method)
+
+julia> transformations["two args"]
+5-element Vector{Any}:
+ (Normalize.square_root_n_add_n_invert, 0.058)
+ (Normalize.add_n_invert, 0.058)
+ (Normalize.add_n_log_base_10, 0.058)
+ (Normalize.add_n_natural_log, 0.058)
+ (Normalize.square_n_add_n_invert, 0.058)
+```
 """
 function get_skew_transformations(gdf; normal_ratio::Real=2)
     transformations = Dict(
@@ -95,7 +216,7 @@ function get_skew_transformations(gdf; normal_ratio::Real=2)
     )
     skews_and_kurts = _get_skewness_kurtosis(gdf)
     df_new = DataFrame(gdf)
-    if are_nonnormal(skews_and_kurts; normal_ratio)
+    if _are_nonnormal(skews_and_kurts; normal_ratio)
         if are_positive_skews(skews_and_kurts)
             positive = get_positive_skew_transformations(df_new)
             mergewith!(append!, transformations, positive)
@@ -138,7 +259,20 @@ The returned named tuple has the following fields:
 - `skewness_error`: skewness standard error
 - `skewness_ratio`: skewness ratio
 
-Throw `ArgumentError` if `col` is empty, or only contains NaNs.
+Skewness statistic is corrected for bias with the adjusted Fisher-Pearson standardized
+moment coefficient.
+
+Throw `ArgumentError` if `col` does not have more than 2 non-`NaN` values.
+
+Source: [`scipy.stats.skew`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.skew.html)
+
+See also: [`skewness_stat`](@ref), [`skewness_error`](@ref)
+
+# Examples
+```jldoctest
+julia> skewness([1.072, 0.486, 0.133, 0.223, 1.139])
+(skewness_stat = 0.306, skewness_error = 0.913, skewness_ratio = 0.335)
+```
 """
 function skewness(col, round_to::Integer=3)
     stat = skewness_stat(col, round_to)
@@ -156,11 +290,24 @@ end
 
 Compute the skewness statistic of a collection `col`, rounded to `round_to` digits.
 
-Throw `ArgumentError` if `col` is empty, or only contains NaNs.
+Skewness statistic is corrected for bias with the adjusted Fisher-Pearson standardized
+moment coefficient.
+
+Throw `ArgumentError` if `col` is empty or contains only `NaN`s.
+
+Source: [`scipy.stats.skew`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.skew.html)
+
+See also: [`skewness`](@ref)
+
+# Examples
+```jldoctest
+julia> skewness_stat([1.072, 0.486, 0.133, 0.223, 1.139])
+0.306
+```
 """
 function skewness_stat(col, round_to::Integer=3)
     if iszero(_length_with_nan_excluded(col))
-        throw(ArgumentError("col cannot be empty, nor only contain NaNs."))
+        throw(ArgumentError("col cannot be empty nor contain only NaNs."))
     elseif any(isnan, col)
         return round(
             SciPy.stats.skew(col, bias=false, nan_policy="omit")[1]; digits=round_to
@@ -179,6 +326,16 @@ end
     skewness_error(col, round_to::Integer=3)
 
 Compute the skewness error of a collection `col`, rounded to `round_to` digits.
+
+Throw `ArgumentError` if the number of items excluding `NaN` values is 2.
+
+See also: [`skewness`](@ref)
+
+# Examples
+```jldoctest
+julia> skewness_error([1.072, 0.486, 0.133, 0.223, 1.139])
+0.913
+```
 """
 function skewness_error(col, round_to::Integer=3)
     variance = skewness_variance(col)
@@ -192,9 +349,17 @@ Compute the skewness variance of a collection `col`.
 
 It is calculated from the formula:
 
-``\\frac{6N(N-1)}{(N-2)(N+1)(N+3)}``
+```math
+\\frac{6N(N-1)}{(N-2)(N+1)(N+3)}
+```
 
 Throw `ArgumentError` if the number of items excluding `NaN` values is 2.
+
+# Examples
+```jldoctest
+julia> skewness_variance([1.072, 0.486, 0.133, 0.223, 1.139])
+0.8333333333333333
+```
 """
 function skewness_variance(col)
     N = _length_with_nan_excluded(col)
@@ -230,7 +395,20 @@ The returned named tuple has the following fields:
 - `kurtosis_error`: kurtosis standard error
 - `kurtosis_ratio`: kurtosis ratio
 
-Throw `ArgumentError` if `col` is empty, or only contains NaNs.
+Kurtosis statistic is corrected for bias with k statistics, and Fisher's definition is
+used.
+
+Throw `ArgumentError` if `col` does not have more than 3 non-`NaN` values.
+
+Source: [`scipy.stats.kurtosis`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.kurtosis.html)
+
+See also: [`kurtosis_stat`](@ref), [`kurtosis_error`](@ref)
+
+# Examples
+```jldoctest
+julia> kurtosis([1.072, 0.486, 0.133, 0.223, 1.139])
+(kurtosis_stat = -2.952, kurtosis_error = 2.0, kurtosis_ratio = -1.476)
+```
 """
 function kurtosis(col, round_to::Integer=3)
     stat = kurtosis_stat(col, round_to)
@@ -248,11 +426,24 @@ end
 
 Compute the kurtosis statistic of a collection `col`, rounded to `round_to` digits.
 
-Throw `ArgumentError` if `col` is empty, or only contains NaNs.
+Kurtosis statistic is corrected for bias with k statistics, and Fisher's definition is
+used.
+
+Throw `ArgumentError` if `col` is empty or contains only `NaN`s.
+
+Source: [`scipy.stats.kurtosis`](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.kurtosis.html)
+
+See also: [`kurtosis`](@ref)
+
+# Examples
+```jldoctest
+julia> kurtosis_stat([1.072, 0.486, 0.133, 0.223, 1.139])
+-2.952
+```
 """
 function kurtosis_stat(col, round_to::Integer=3)
     if iszero(_length_with_nan_excluded(col))
-        throw(ArgumentError("col cannot be empty, nor only contain NaNs."))
+        throw(ArgumentError("col cannot be empty nor contain only NaNs."))
     elseif any(isnan, col)
         return round(
             SciPy.stats.kurtosis(col, bias=false, nan_policy="omit")[1]; digits=round_to
@@ -268,6 +459,16 @@ end
     kurtosis_error(col, round_to::Integer=3)
 
 Compute the kurtosis error of a collection `col`, rounded to `round_to` digits.
+
+Throw `ArgumentError` if the number of items excluding `NaN` values is 2 or 3.
+
+See also: [`kurtosis`](@ref)
+
+# Examples
+```jldoctest
+julia> kurtosis_error([1.072, 0.486, 0.133, 0.223, 1.139])
+2.0
+```
 """
 function kurtosis_error(col, round_to::Integer=3)
     variance = kurtosis_variance(col)
@@ -281,9 +482,17 @@ Compute the kurtosis variance of a collection `col`.
 
 It is calculated from the formula:
 
-``\\frac{4(N^2-1)*skewness_variance}{(N-3)(N+5)}``
+```math
+\\frac{4(N^2-1)*skewnessVariance}{(N-3)(N+5)}
+```
 
 Throw `ArgumentError` if the number of items excluding `NaN` values is 2 or 3.
+
+# Examples
+```jldoctest
+julia> kurtosis_variance([1.072, 0.486, 0.133, 0.223, 1.139])
+4.0
+```
 """
 function kurtosis_variance(col)
     N = _length_with_nan_excluded(col)
@@ -294,17 +503,7 @@ function kurtosis_variance(col)
     return 4 * (N^2 - 1) * skewness_var * invert((N - 3) * (N + 5))
 end
 
-"""
-    are_nonnormal(skew_kurt_ratios; normal_ratio::Real=2) -> Bool
-
-Return `true` if ratios are not within the range of ±`normal_ratio` in a collection
-`skew_kurt_ratios` containing named tuples, and `false` otherwise.
-
-The named tuples in `skew_kurt_ratios` have the following fields:
-- `skewness_ratio`: skewness ratio
-- `kurtosis_ratio`: kurtosis ratio
-"""
-function are_nonnormal(skew_kurt_ratios; normal_ratio::Real=2)
+function _are_nonnormal(skew_kurt_ratios; normal_ratio::Real=2)
     return !are_normal(skew_kurt_ratios; normal_ratio)
 end
 
@@ -317,6 +516,25 @@ Return `true` if ratios are within the range of ±`normal_ratio` in collections
 The named tuples in `skew_kurt_ratios` have the following fields:
 - `skewness_ratio`: skewness ratio
 - `kurtosis_ratio`: kurtosis ratio
+
+# Examples
+```jldoctest
+julia> sk = [
+           (skewness_ratio=1.75, kurtosis_ratio=0.5),
+           (skewness_ratio=0.3, kurtosis_ratio=0.6),
+       ];
+
+julia> are_normal(sk)
+true
+
+julia> sk2 = (
+           (skewness_ratio=-3.14, kurtosis_ratio=1.11),
+           (skewness_ratio=1.38, kurtosis_ratio=0.66),
+       );
+
+julia> are_normal(sk2)
+false
+```
 """
 function are_normal(skew_kurt_ratios; normal_ratio::Real=2)
     return all(
@@ -330,6 +548,15 @@ end
 
 Return `true` if `skewness_ratio` and `kurtosis_ratio` are within the range of
 ±`normal_ratio`, and `false` otherwise.
+
+# Examples
+```jldoctest
+julia> is_normal(1.38, 0.66)
+true
+
+julia> is_normal(-3.14, 1.11)
+false
+```
 """
 function is_normal(skewness_ratio::Real, kurtosis_ratio::Real; normal_ratio::Real=2)
     return (-normal_ratio ≤ skewness_ratio ≤ normal_ratio) &&
@@ -339,10 +566,19 @@ end
 """
     are_positive_skews(skewnesses) -> Bool
 
-Return `true` if there are any positive ratios in a collection `skewnesses` containing
-named tuples, and `false` otherwise.
+Return `true` if there are any positive, non-zero ratios in a collection `skewnesses`
+containing named tuples, and `false` otherwise.
 
 `skewnesses` has named tuples with a field `skewness_ratio`.
+
+# Examples
+```jldoctest
+julia> are_positive_skews([(skewness_ratio=0.513,), (skewness_ratio=-2.049,)])
+true
+
+julia> are_positive_skews([(skewness_ratio=-1.452,), (skewness_ratio=0,)])
+false
+```
 """
 function are_positive_skews(skewnesses)
     return _contains(is_positive_skew, skewnesses)
@@ -375,7 +611,19 @@ end
 """
     is_positive_skew(skewness_ratio::Real) -> Bool
 
-Return `true` if `skewness_ratio` is positive, and `false` otherwise.
+Return `true` if `skewness_ratio` is positive and not zero, and `false` otherwise.
+
+# Examples
+```jldoctest
+julia> is_positive_skew(1.25)
+true
+
+julia> is_positive_skew(-1.25)
+false
+
+julia> is_positive_skew(0)
+false
+```
 """
 function is_positive_skew(skewness_ratio::Real)
     return skewness_ratio > 0
@@ -384,11 +632,32 @@ end
 """
     get_positive_skew_transformations(df) -> AbstractDict
 
-Return functions to transform positive skew for a data frame `df`.
+Return functions to transform positive skew for a data frame `df` based on its minimum
+value.
 
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require two arguments
+- `"two args"` => a collection of tuples containing functions that require two arguments,
+    and their second arguments
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[1.072, 0.486, 0.133, 0.223, 1.139]);
+
+julia> positive = get_positive_skew_transformations(df);
+
+julia> positive["one arg"]
+1-element Vector{Function}:
+ square_root (generic function with 1 method)
+
+julia> positive["two args"]
+5-element Vector{Tuple{Function, Float64}}:
+ (Normalize.square_root_n_add_n_invert, 0.133)
+ (Normalize.add_n_invert, 0.133)
+ (Normalize.add_n_log_base_10, 0.133)
+ (Normalize.add_n_natural_log, 0.133)
+ (Normalize.square_n_add_n_invert, 0.133)
+```
 """
 function get_positive_skew_transformations(df)
     min = _extrema(df)[1]
@@ -509,7 +778,7 @@ end
 """
     log_base_10(x::Real)
 
-Compute the logarithm of `x` to base 10.
+Compute the logarithm of `x` to base 10, in other words ``\\log_{10}(x)``.
 
 Throw `DomainError` if `x ≤ 0`.
 """
@@ -539,7 +808,7 @@ end
 """
     natural_log(x::Real)
 
-Compute the natural logarithm of `x`.
+Compute the natural logarithm of `x`, in other words ``\\ln(x)``.
 
 Throw `DomainError` if `x ≤ 0`.
 """
@@ -633,6 +902,15 @@ Return `true` if there are any negative ratios in a collection `skewnesses` cont
 named tuples, and `false` otherwise.
 
 `skewnesses` has named tuples with a field `skewness_ratio`.
+
+# Examples
+```jldoctest
+julia> are_negative_skews([(skewness_ratio=0.513,), (skewness_ratio=-2.049,)])
+true
+
+julia> are_negative_skews([(skewness_ratio=0.0,), (skewness_ratio=0.978,)])
+false
+```
 """
 function are_negative_skews(skewnesses)
     return _contains(is_negative_skew, skewnesses)
@@ -642,6 +920,18 @@ end
     is_negative_skew(skewness_ratio::Real) -> Bool
 
 Return `true` if `skewness_ratio` is negative, and `false` otherwise.
+
+# Examples
+```jldoctest
+julia> is_negative_skew(1.25)
+false
+
+julia> is_negative_skew(-1.25)
+true
+
+julia> is_negative_skew(0)
+false
+```
 """
 function is_negative_skew(skewness_ratio::Real)
     return skewness_ratio < 0
@@ -650,11 +940,32 @@ end
 """
     get_negative_skew_transformations(df) -> AbstractDict
 
-Return functions to transform negative skew for a data frame `df`.
+Return functions to transform negative skew for a data frame `df` based on its maximum
+value.
 
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require two arguments
+- `"two args"` => a collection of tuples containing functions that require two arguments,
+    and their second arguments
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[1.072, 0.486, 0.133, 0.223, 1.139]);
+
+julia> negative = get_negative_skew_transformations(df);
+
+julia> negative["one arg"]
+3-element Vector{Function}:
+ square (generic function with 1 method)
+ cube (generic function with 1 method)
+ antilog (generic function with 1 method)
+
+julia> negative["two args"]
+3-element Vector{Tuple{Function, Float64}}:
+ (Normalize.reflect_n_square_root, 1.139)
+ (Normalize.reflect_n_log_base_10, 1.139)
+ (Normalize.reflect_n_invert, 1.139)
+```
 """
 function get_negative_skew_transformations(df)
     max = _extrema(df)[2]
@@ -754,6 +1065,16 @@ Return functions to stretch skew for a data frame `df`.
 The returned dictionary has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
 - `"two args"` => a collection of functions that require two arguments
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[1.072, 0.486, 0.133, 0.223, 1.139]);
+
+julia> get_stretch_skew_transformations(df)
+Dict{String, Vector{T} where T} with 2 entries:
+  "one arg"  => Function[add_n_logit, logit]
+  "two args" => Any[]
+```
 """
 function get_stretch_skew_transformations(df)
     stretch = Dict(
@@ -817,7 +1138,8 @@ of ±`normal_ratio`.
 
 `transform_series` has the following key-value pairs:
 - `"one arg"` => a collection of functions that require one argument
-- `"two args"` => a collection of functions that require two arguments
+- `"two args"` => a collection of tuples containing functions that require two arguments,
+    and their second arguments
 
 Functions will be separately applied to `gdf`, and the column names of the transformed
 (grouped) data frame will be suffixed with a string `marker` and the applied functions.
@@ -828,9 +1150,112 @@ A dictionary is returned with the following key-value pairs:
 - `"normal gdf"` => a list of transformed (grouped) data frames whose data are normal
 - `"nonnormal gdf"` => a list of transformed (grouped) data frames whose data are nonnormal
 
-Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
-marker is shorter than 2 characters, or does not only consist of punctuations; and
+!!! compat "Julia 1.5"
+    `record_all` uses `contains`, which requires at least Julia 1.5.
+
+Throw `ArgumentError` if there is a column that does not have more than 3 non-`NaN` values,
+or if `marker` is shorter than 2 characters, or does not only consist of punctuations; and
 `OverflowError` if transforming `df` or `gd` results in a value too large to represent.
+
+See also: [`record`](@ref)
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
+
+julia> series = Dict(
+           "one arg" => Function[Normalize.antilog],
+           "two args" => [(Normalize.reflect_n_square_root, 3.13)],
+       );
+
+julia> records = record_all(df, series);
+
+julia> records["normal gdf"]
+1-element Vector{Any}:
+ 5×1 DataFrame
+ Row │ a__antilog
+     │ Float64
+─────┼─────────────
+   1 │    0.316228
+   2 │  295.121
+   3 │  346.737
+   4 │  812.831
+   5 │ 1348.96
+
+julia> pairs(records["normalized"]["antilog"][1])
+pairs(::NamedTuple) with 7 entries:
+  :name           => "a"
+  :skewness_stat  => 0.852
+  :skewness_error => 0.913
+  :skewness_ratio => 0.933
+  :kurtosis_stat  => -0.029
+  :kurtosis_error => 2.0
+  :kurtosis_ratio => -0.014
+
+julia> records["nonnormal gdf"]
+1-element Vector{Any}:
+ 5×1 DataFrame
+ Row │ a__reflect_n_square_root
+     │ Float64
+─────┼──────────────────────────
+   1 │                  2.15174
+   2 │                  1.28841
+   3 │                  1.26095
+   4 │                  1.10454
+   5 │                  1.0
+
+julia> df2 = DataFrame(g=[1,2,1,2,1,2,1,2], kel=[5.5,5.8,5,5,7.5,1.08,0.94,0.56]);
+
+julia> series2 = Dict(
+           "two args" => [(Normalize.reflect_n_log_base_10, 7.5)],
+           "one arg" => [],
+       );
+
+julia> records2 = record_all(groupby(df2, :g), series2);
+
+julia> records2["normal gdf"][1]
+GroupedDataFrame with 2 groups based on key: g
+First Group (4 rows): g = 1
+ Row │ g      kel__reflect_n_log_base_10
+     │ Int64  Float64
+─────┼───────────────────────────────────
+   1 │     1                    0.477121
+   2 │     1                    0.544068
+   3 │     1                    0.0
+   4 │     1                    0.878522
+⋮
+Last Group (4 rows): g = 2
+ Row │ g      kel__reflect_n_log_base_10
+     │ Int64  Float64
+─────┼───────────────────────────────────
+   1 │     2                    0.431364
+   2 │     2                    0.544068
+   3 │     2                    0.870404
+   4 │     2                    0.899821
+
+julia> pairs(records2["normalized"]["reflect and log base 10"][1])
+pairs(::NamedTuple) with 7 entries:
+  :name           => "kel (g = 1)"
+  :skewness_stat  => -0.577
+  :skewness_error => 1.014
+  :skewness_ratio => -0.569
+  :kurtosis_stat  => 1.523
+  :kurtosis_error => 2.619
+  :kurtosis_ratio => 0.582
+
+julia> pairs(records2["normalized"]["reflect and log base 10"][2])
+pairs(::NamedTuple) with 7 entries:
+  :name           => "kel (g = 2)"
+  :skewness_stat  => -0.183
+  :skewness_error => 1.014
+  :skewness_ratio => -0.18
+  :kurtosis_stat  => -4.806
+  :kurtosis_error => 2.619
+  :kurtosis_ratio => -1.835
+
+julia> records2["nonnormal gdf"]
+Any[]
+```
 """
 function record_all(
     gdf, transform_series; normal_ratio::Real=2, marker::AbstractString="__"
@@ -842,7 +1267,7 @@ end
 
 """
     record(
-        gdf, transformations::Vector{Function};
+        gdf, transformations::AbstractVector{Function};
         normal_ratio::Real=2, marker::AbstractString="__"
     ) -> AbstractDict
     record(
@@ -854,9 +1279,8 @@ Compute the skewness and kurtosis for each function in `transformations` applied
 and of any resulting skewness and kurtosis whose ratios are within the range of
 ±`normal_ratio`.
 
-If `transformations` is not of type `Vector{Function}`, then it is a collection of function
-and extremum pairs. The extremum is the minimum or maximum value of `gdf` that corresponds
-to the second argument of the paired function.
+If `transformations` is not of type `AbstractVector{Function}`, then it is a collection of
+function and second argument pairings.
 
 Functions will be separately applied to `gdf`, and the column names of the transformed
 (grouped) data frame will be suffixed with a string `marker` and the applied functions.
@@ -867,12 +1291,89 @@ A dictionary is returned with the following key-value pairs:
 - `"normal gdf"` => a list of transformed (grouped) data frames whose data are normal
 - `"nonnormal gdf"` => a list of transformed (grouped) data frames whose data are nonnormal
 
-Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
-marker is shorter than 2 characters, or does not only consist of punctuations; and
+!!! compat "Julia 1.5"
+    `record` uses `contains`, which requires at least Julia 1.5.
+
+Throw `ArgumentError` if there is a column that does not have more than 3 non-`NaN` values,
+or if `marker` is shorter than 2 characters, or does not only consist of punctuations; and
 `OverflowError` if transforming `df` or `gd` results in a value too large to represent.
+
+See also: [`record_all`](@ref)
+
+# Examples
+```jldoctest
+julia> df = DataFrame(g=[1,2,1,2,1,2,1,2], kel=[5.5,5.8,5,5,7.5,1.08,0.94,0.56]);
+
+julia> catalog = record(groupby(df, :g), [(Normalize.add_n_natural_log, 0.56)]);
+
+julia> catalog["normal gdf"]
+1-element Vector{Any}:
+ GroupedDataFrame with 2 groups based on key: g
+First Group (4 rows): g = 1
+ Row │ g      kel__add_n_natural_log
+     │ Int64  Float64
+─────┼───────────────────────────────
+   1 │     1                1.78171
+   2 │     1                1.69378
+   3 │     1                2.07191
+   4 │     1                0.322083
+⋮
+Last Group (4 rows): g = 2
+ Row │ g      kel__add_n_natural_log
+     │ Int64  Float64
+─────┼───────────────────────────────
+   1 │     2                 1.83098
+   2 │     2                 1.69378
+   3 │     2                 0.41871
+   4 │     2                 0.0
+
+julia> pairs(catalog["normalized"]["add and natural log"][1])
+pairs(::NamedTuple) with 7 entries:
+  :name           => "kel (g = 1)"
+  :skewness_stat  => -1.737
+  :skewness_error => 1.014
+  :skewness_ratio => -1.713
+  :kurtosis_stat  => 3.271
+  :kurtosis_error => 2.619
+  :kurtosis_ratio => 1.249
+
+julia> pairs(catalog["normalized"]["add and natural log"][2])
+pairs(::NamedTuple) with 7 entries:
+  :name           => "kel (g = 2)"
+  :skewness_stat  => -0.159
+  :skewness_error => 1.014
+  :skewness_ratio => -0.157
+  :kurtosis_stat  => -4.877
+  :kurtosis_error => 2.619
+  :kurtosis_ratio => -1.862
+
+julia> catalog["nonnormal gdf"]
+Any[]
+
+julia> df2 = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
+
+julia> catalog2 = record(df2, Function[Normalize.logit]);
+
+julia> catalog2["normalized"]
+Dict{Any, Any}()
+
+julia> catalog2["normal gdf"]
+Any[]
+
+julia> catalog2["nonnormal gdf"][1]
+5×1 DataFrame
+ Row │ a__logit
+     │ Float64
+─────┼───────────
+   1 │ -0.477121
+   2 │  0.22538
+   3 │  0.217313
+   4 │  0.18286
+   5 │  0.167165
+```
 """
 function record(
-    gdf, transformations::Vector{Function};
+    gdf, transformations::AbstractVector{Function};
     normal_ratio::Real=2, marker::AbstractString="__"
 )
     main_record = Dict(
@@ -924,9 +1425,80 @@ A named tuple is returned with the following fields:
     `kurtosis_ratio`
 - `transformed_gdf`: a transformed (grouped) data frame
 
-Throw `ArgumentError` if there is a column that has only 0, 2, or 3 non-NaN values; or if
-marker is shorter than 2 characters, or does not only consist of punctuations; and
+!!! compat "Julia 1.5"
+    `apply` uses `contains`, which requires at least Julia 1.5.
+
+Throw `ArgumentError` if there is a column that does not have more than 3 non-`NaN` values,
+or if `marker` is shorter than 2 characters, or does not only consist of punctuations; and
 `OverflowError` if transforming `df` or `gd` results in a value too large to represent.
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=1:4);
+
+julia> results = apply(Normalize.square, df);
+
+julia> pairs(results[:skewness_and_kurtosis][1])
+pairs(::NamedTuple) with 6 entries:
+  :skewness_stat  => 0.709
+  :skewness_error => 1.014
+  :skewness_ratio => 0.699
+  :kurtosis_stat  => -0.592
+  :kurtosis_error => 2.619
+  :kurtosis_ratio => -0.226
+
+julia> results[:transformed_gdf]
+4×1 DataFrame
+ Row │ a__square
+     │ Int64
+─────┼───────────
+   1 │         1
+   2 │         4
+   3 │         9
+   4 │        16
+
+julia> df2 = DataFrame(group=[1, 1, 1, 1, 2, 2, 2, 2], a=1:8);
+
+julia> results2 = apply(Normalize.add_n_invert, groupby(df2, :group), 1);
+
+julia> pairs(results2[:skewness_and_kurtosis][1])
+pairs(::NamedTuple) with 6 entries:
+  :skewness_stat  => 1.469
+  :skewness_error => 1.014
+  :skewness_ratio => 1.449
+  :kurtosis_stat  => 2.031
+  :kurtosis_error => 2.619
+  :kurtosis_ratio => 0.775
+
+julia> pairs(results2[:skewness_and_kurtosis][2])
+pairs(::NamedTuple) with 6 entries:
+  :skewness_stat  => 0.574
+  :skewness_error => 1.014
+  :skewness_ratio => 0.566
+  :kurtosis_stat  => -0.625
+  :kurtosis_error => 2.619
+  :kurtosis_ratio => -0.239
+
+julia> results2[:transformed_gdf]
+GroupedDataFrame with 2 groups based on key: group
+First Group (4 rows): group = 1
+ Row │ group  a__add_n_invert
+     │ Int64  Float64
+─────┼────────────────────────
+   1 │     1         1.0
+   2 │     1         0.5
+   3 │     1         0.333333
+   4 │     1         0.25
+⋮
+Last Group (4 rows): group = 2
+ Row │ group  a__add_n_invert
+     │ Int64  Float64
+─────┼────────────────────────
+   1 │     2         0.2
+   2 │     2         0.166667
+   3 │     2         0.142857
+   4 │     2         0.125
+```
 """
 function apply(func, df::AbstractDataFrame; marker::AbstractString="__")
     if _is_not_long_punctuation(marker)
@@ -1006,7 +1578,7 @@ function _rename_with(fragment, name; marker::AbstractString="__")
 end
 
 function _get_original(colname; marker::AbstractString="__")
-    return view(colname, 1:_find_original_end(colname; marker))
+    return SubString(colname, 1, _find_original_end(colname; marker))
 end
 
 function _find_original_end(colname; marker::AbstractString="__")
@@ -1202,6 +1774,9 @@ Load tabular data from a string `path`, and converts it to a data frame.
 
 Acceptable file extensions are .csv, .dta, .ods, .sav, .xls, and .xlsx. If `path` ends in
 .ods, .xls, or .xlsx, the worksheet that is named `sheet` is converted.
+
+!!! compat "Julia 1.2"
+    `tabular_to_dataframe` uses `Regex` in `endswith`, which requires at least Julia 1.2.
 """
 function tabular_to_dataframe(path, sheet::AbstractString="")
     if endswith(path, ".csv")
@@ -1221,30 +1796,60 @@ function tabular_to_dataframe(path, sheet::AbstractString="")
 end
 
 """
-    sheetcols_to_float!(df; blank_to::Real) -> AbstractDataFrame
+    sheetcol_to_float!(df, colname; blank_to::Real) -> AbstractVector
 
-Convert columns of element type `String` or `Any` to `Float64` in a data frame `df`. Blank
-values (i.e., " ") will be replaced with `blank_to` before conversion.
-
-`df` originated from data in a CSV, an Excel, or OpenDocument Spreadsheet file.
+Convert a column named `colname`  in a data frame `df` with element type `String` or `Any`
+to `Float64`. Blank values (i.e., " ") will be replaced with `blank_to` before conversion.
 
 If a value cannot be converted to `Float64`, an error is raised.
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[" ", "7"], b=[6.39, " "], c=[" ", " "])
+2×3 DataFrame
+ Row │ a       b     c
+     │ String  Any   String
+─────┼──────────────────────
+   1 │         6.39
+   2 │ 7
+
+julia> sheetcol_to_float!(df, :a, blank_to=1.25)
+2-element Vector{Float64}:
+ 1.25
+ 7.0
+
+julia> sheetcol_to_float!(df, "b", blank_to=8)
+2-element Vector{Float64}:
+ 6.39
+ 8.0
+
+julia> sheetcol_to_float!(df, 3, blank_to=5)
+2-element Vector{Float64}:
+ 5.0
+ 5.0
+
+julia> df
+2×3 DataFrame
+ Row │ a        b        c
+     │ Float64  Float64  Float64
+─────┼───────────────────────────
+   1 │    1.25     6.39      5.0
+   2 │    7.0      8.0       5.0
+```
 """
-function sheetcols_to_float!(df; blank_to::Real)
-    for colname in names(df)
-        col = df[!, colname]
-        if _is_from_csv_excel_or_opendoc(col)
-            if _is_from_csv(col)
-                replace!(col, " " => "$(blank_to)")
-                df[!, colname] = parse.(Float64, col)
-            else
-                replace!(col, " " => blank_to)
-                df[!, colname] = convert(Vector{Float64}, col)
-            end
+function sheetcol_to_float!(df, colname; blank_to::Real)
+    col = df[!, colname]
+    if _is_from_csv_excel_or_opendoc(col)
+        if _is_from_csv(col)
+            replace!(col, " " => "$(blank_to)")
+            df[!, colname] = parse.(Float64, col)
+        else
+            replace!(col, " " => blank_to)
+            df[!, colname] = convert(Vector{Float64}, col)
         end
     end
 
-    return df
+    return df[!, colname]
 end
 
 function _is_from_csv_excel_or_opendoc(col)
@@ -1257,24 +1862,62 @@ function _is_from_csv(col)
 end
 
 """
-    replace_missing!(df, new_value) -> AbstractDataFrame
+    replace_missing!(df, colname; new_value::Real) -> AbstractVector
 
-Replace all occurrences of `missing` with a number `new_value` in a data frame `df`.
+Replace occurrences of `missing` with `new_value` in a column named `colname` in a data
+frame `df`. The column will be converted to element type `Float64`.
+
+If a value cannot be converted to `Float64`, an error is raised.
+
+!!! compat "Julia 1.3"
+    `replace_missing!` uses `nonmissingtype`, which is exported as of Julia 1.3.
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[missing, 10], b=[12.12, missing], c=[missing, missing])
+2×3 DataFrame
+ Row │ a        b           c
+     │ Int64?   Float64?    Missing
+─────┼──────────────────────────────
+   1 │ missing       12.12  missing
+   2 │      10  missing     missing
+
+julia> replace_missing!(df, :a, new_value=2.5)
+2-element Vector{Float64}:
+  2.5
+ 10.0
+
+julia> replace_missing!(df, "b", new_value=6)
+2-element Vector{Float64}:
+ 12.12
+  6.0
+
+julia> replace_missing!(df, 3, new_value=9)
+2-element Vector{Float64}:
+ 9.0
+ 9.0
+
+julia> df
+2×3 DataFrame
+ Row │ a        b        c
+     │ Float64  Float64  Float64
+─────┼───────────────────────────
+   1 │     2.5    12.12      9.0
+   2 │    10.0     6.0       9.0
+```
 """
-function replace_missing!(df, new_value)
-    for colname in names(df)
-        col = df[!, colname]
-        if _is_numbered(col)
-            replace!(col, missing => new_value)
-        end
+function replace_missing!(df, colname; new_value::Real)
+    col = df[!, colname]
+    nonmissing = nonmissingtype(eltype(col))
+    if nonmissing === String
+        replace!(col, missing => "$(new_value)")
+        df[!, colname] = parse.(Float64, col)
+    else
+        col = map(float, col)
+        df[!, colname] = coalesce.(col, float(new_value))
     end
 
-    return df
-end
-
-function _is_numbered(col)
-    nonmissing = nonmissingtype(eltype(col))
-    return nonmissing <: Real && !<:(nonmissing, Union)
+    return df[!, colname]
 end
 
 """
@@ -1286,6 +1929,64 @@ or grouped data frame `gd`.
 
 If `dependent` is `true`, then the skewness and kurtosis of the difference between the
 columns of `df` will be printed.
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[1.072, 0.486, 0.133, 0.223, 1.139]);
+
+julia> print_skewness_kurtosis(df)
+--------
+Variable: a
+Skewness Statistic: 0.306
+Skewness Std. Error: 0.913
+Skewness Ratio: 0.335
+
+Kurtosis Statistic: -2.952
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: -1.476
+
+
+julia> df2 = DataFrame(b=[6.24, 6.34, 6.39, 2.6, 8.35], c=[5.5, 5.8, 5, 5, 7.5]);
+
+julia> print_skewness_kurtosis(df2, dependent=true)
+--------
+Variable: c_minus_b
+Skewness Statistic: 1.983
+Skewness Std. Error: 0.913
+Skewness Ratio: 2.172
+
+Kurtosis Statistic: 4.212
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 2.106
+
+
+julia> df3 = DataFrame(
+           group=[1,1,1,1,2,2,2,2],
+           dd=[0.042, 0.849, 0.342, 0.771, 1.879, 1.289, 0.981, 1.073],
+       );
+
+julia> print_skewness_kurtosis(groupby(df3, :group))
+--------
+Variable: dd (group = 1)
+Skewness Statistic: -0.478
+Skewness Std. Error: 1.014
+Skewness Ratio: -0.471
+
+Kurtosis Statistic: -2.951
+Kurtosis Std. Error: 2.619
+Kurtosis Ratio: -1.127
+
+--------
+Variable: dd (group = 2)
+Skewness Statistic: 1.439
+Skewness Std. Error: 1.014
+Skewness Ratio: 1.419
+
+Kurtosis Statistic: 1.859
+Kurtosis Std. Error: 2.619
+Kurtosis Ratio: 0.71
+
+```
 """
 function print_skewness_kurtosis(df::AbstractDataFrame; dependent::Bool=false)
     try
@@ -1380,13 +2081,175 @@ Print the normal skewness and kurtosis in a dictionary `findings`.
     skewnesses and kurtoses for each normal transformation key
 - `"normal gdf"` => a list of transformed (grouped) data frames whose data are normal
 - `"nonnormal gdf"` => a list of transformed (grouped) data frames whose data are nonnormal
+
+# Examples
+```jldoctest
+julia> df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
+
+julia> results = normalize(df);
+
+julia> print_findings(results)
+APPLIED: cube
+--------
+Variable: a
+Skewness Statistic: -0.678
+Skewness Std. Error: 0.913
+Skewness Ratio: -0.743
+
+Kurtosis Statistic: 0.669
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 0.334
+
+
+APPLIED: square
+--------
+Variable: a
+Skewness Statistic: -1.315
+Skewness Std. Error: 0.913
+Skewness Ratio: -1.44
+
+Kurtosis Statistic: 2.149
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 1.074
+
+
+APPLIED: antilog
+--------
+Variable: a
+Skewness Statistic: 0.852
+Skewness Std. Error: 0.913
+Skewness Ratio: 0.933
+
+Kurtosis Statistic: -0.029
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: -0.014
+
+
+APPLIED: reflect and invert
+--------
+Variable: a
+Skewness Statistic: -0.626
+Skewness Std. Error: 0.913
+Skewness Ratio: -0.686
+
+Kurtosis Statistic: 0.843
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 0.422
+
+
+APPLIED: reflect and log base 10
+--------
+Variable: a
+Skewness Statistic: 1.567
+Skewness Std. Error: 0.913
+Skewness Ratio: 1.716
+
+Kurtosis Statistic: 2.896
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 1.448
+
+
+
+julia> results2
+ERROR: UndefVarError: results2 not defined
+
+julia> df2 = DataFrame(group=[1, 1, 1, 1, 2, 2, 2, 2], a=1:8);
+
+julia> results2 = apply(Normalize.add_n_invert, groupby(df2, :group), 1);
+
+julia> results2[:transformed_gdf]
+GroupedDataFrame with 2 groups based on key: group
+First Group (4 rows): group = 1
+ Row │ group  a__add_n_invert
+     │ Int64  Float64
+─────┼────────────────────────
+   1 │     1         1.0
+   2 │     1         0.5
+   3 │     1         0.333333
+   4 │     1         0.25
+⋮
+Last Group (4 rows): group = 2
+ Row │ group  a__add_n_invert
+     │ Int64  Float64
+─────┼────────────────────────
+   1 │     2         0.2
+   2 │     2         0.166667
+   3 │     2         0.142857
+   4 │     2         0.125
+
+julia> df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
+
+julia> results = normalize(df);
+
+julia> print_findings(results)
+APPLIED: cube
+--------
+Variable: a
+Skewness Statistic: -0.678
+Skewness Std. Error: 0.913
+Skewness Ratio: -0.743
+
+Kurtosis Statistic: 0.669
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 0.334
+
+
+APPLIED: square
+--------
+Variable: a
+Skewness Statistic: -1.315
+Skewness Std. Error: 0.913
+Skewness Ratio: -1.44
+
+Kurtosis Statistic: 2.149
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 1.074
+
+
+APPLIED: antilog
+--------
+Variable: a
+Skewness Statistic: 0.852
+Skewness Std. Error: 0.913
+Skewness Ratio: 0.933
+
+Kurtosis Statistic: -0.029
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: -0.014
+
+
+APPLIED: reflect and invert
+--------
+Variable: a
+Skewness Statistic: -0.626
+Skewness Std. Error: 0.913
+Skewness Ratio: -0.686
+
+Kurtosis Statistic: 0.843
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 0.422
+
+
+APPLIED: reflect and log base 10
+--------
+Variable: a
+Skewness Statistic: 1.567
+Skewness Std. Error: 0.913
+Skewness Ratio: 1.716
+
+Kurtosis Statistic: 2.896
+Kurtosis Std. Error: 2.0
+Kurtosis Ratio: 1.448
+
+
+```
 """
 function print_findings(findings)
     normal = findings["normalized"]
     for (transformation, altered) in normal
         println("APPLIED: $transformation")
         _print_summary.(altered)
-        println("\n")
+        println()
     end
 
     if _has_no_changes(findings)
@@ -1405,10 +2268,10 @@ end
 
 Export normal data from a dictionary `findings` to a CSV file in a string `path`.
 
+`findings` has a key `"normal gdf"` with a collection value of (grouped) data frames.
+
 If `path` already exists (i.e., a file has the same name), then the file will be
 overwritten. Otherwise, a new file will be created.
-
-`findings` has a key `"normal gdf"` with a collection value of (grouped) data frames.
 
 If `dependent` is `true`, then a column of zeros will also be created in the CSV file for
 dependent testing of data with only one group and two dependent variables.

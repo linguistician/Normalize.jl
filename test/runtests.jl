@@ -22,18 +22,22 @@ using DataFrames, Normalize, Test
 end
 
 @testset "replace missing" begin
-    @test replace_missing!(DataFrame(a=[1.0, missing]), 3.14) == DataFrame(a=[1.0, 3.14])
-    @test replace_missing!(DataFrame(a=["hi", missing]), "bye")[2, 1] === missing
-    @test replace_missing!(DataFrame(a=[missing]), 1)[1, 1] === missing
-    @test replace_missing!(DataFrame(), 1) == DataFrame()
+    @test replace_missing!(DataFrame(a=[1, missing]), :a, new_value=3.14) == [1.0, 3.14]
+    @test_throws ArgumentError replace_missing!(
+        DataFrame(a=["hi", missing]), "a", new_value=2.13
+    )[2]
+    @test replace_missing!(DataFrame(a=[missing]), 1, new_value=1)[1] === 1.0
+    @test replace_missing!(DataFrame(a=[]), 1, new_value=1) == []
 end
     
 @testset "convert columns of eltype String or Any to float" begin
-    @test sheetcols_to_float!(DataFrame(a=["1", " "]), blank_to=2.2) ==
-        DataFrame(a=[1, 2.2])
-    @test sheetcols_to_float!(DataFrame(a=[1.23, " "]), blank_to=1) ==
-        DataFrame(a=[1.23, 1.0])
-    @test sheetcols_to_float!(DataFrame(a=1:4), blank_to=5.1) == DataFrame(a=1:4)
+    @test sheetcol_to_float!(DataFrame(a=["1", " "]), :a, blank_to=2.2) == [1, 2.2]
+    @test_throws ArgumentError replace_missing!(
+        DataFrame(a=["hi", " "]), "a", new_value=2.13
+    )
+    @test sheetcol_to_float!(DataFrame(a=[1.23, " "]), "a", blank_to=1) == [1.23, 1.0]
+    @test sheetcol_to_float!(DataFrame(a=[" "]), 1, blank_to=1) == [1]
+    @test sheetcol_to_float!(DataFrame(a=1:4), 1, blank_to=5.1) == 1:4
 end
 
 @testset "positive skew transformations" begin
@@ -44,7 +48,7 @@ end
 
     @test Normalize.add_n_log_base_10(98, -1) == 2.0
     @test_throws ArgumentError Normalize.add_n_log_base_10(4, 5)
-
+    
     @test isone(Normalize.natural_log(exp(1)))
     @test_throws DomainError Normalize.natural_log(0)
     @test_throws DomainError Normalize.natural_log(0.0)
@@ -58,7 +62,7 @@ end
 
     @test Normalize.add_n_square_root(3, 0) == 2.0
     @test_throws ArgumentError Normalize.add_n_square_root(-1, 0)
-
+    
     @test Normalize.invert(-2) == -0.5
     @test_throws DivideError Normalize.invert(0)
     @test_throws DivideError Normalize.invert(0.0)
@@ -69,7 +73,7 @@ end
     @test Normalize.square_n_invert(2) == 0.25
     @test_throws DivideError Normalize.square_n_invert(0)
     @test_throws DivideError Normalize.square_n_invert(0.0)
-    
+
     @test Normalize.Normalize.square_n_add_n_invert(2, 1) == 0.25
     @test_throws ArgumentError Normalize.Normalize.square_n_add_n_invert(-2, -1)
     @test_throws DivideError Normalize.Normalize.square_n_add_n_invert(0, -1)
@@ -98,7 +102,7 @@ end
     @test Normalize.add_n_logit(2.75) == Normalize.logit(3)
     @test_throws DivideError Normalize.add_n_logit(0.75)
     @test_throws DomainError Normalize.add_n_logit(-0.25)
-end
+    end
 
 @testset "negative skew transformations" begin
     @test Normalize.square(5.0) == 25.0
@@ -139,28 +143,26 @@ end
     @test is_normal(0, 0)
     @test is_normal(4, 6) == false
     @test is_normal(3.14, 2.22, normal_ratio=4)
-
+    
     nt = [
         (skewness_ratio = 1.19, kurtosis_ratio = 0.55,), 
         (skewness_ratio = 0.98, kurtosis_ratio = 1.2,),
     ]
     @test are_normal(nt)
-    @test are_nonnormal(nt) == false
     nt2 = [
         (skewness_ratio = 1.19, kurtosis_ratio = 2.2,),
         (skewness_ratio = 0.98, kurtosis_ratio = 1.2,),
     ]
     @test are_normal(nt2) == false
-    @test are_nonnormal(nt2)
 end
 
 @testset "get skew transformations" begin
     df = DataFrame(a=[-1, 1])
     @test isempty(get_positive_skew_transformations(df)["one arg"])
     @test (Normalize.add_n_square_root, -1) in
-    get_positive_skew_transformations(df)["two args"]
+        get_positive_skew_transformations(df)["two args"]
     @test (Normalize.add_n_square_root_n_invert, -1) in
-    get_positive_skew_transformations(df)["two args"]
+        get_positive_skew_transformations(df)["two args"]
     @test (Normalize.add_n_invert, -1) in
         get_positive_skew_transformations(df)["two args"]
     @test (Normalize.square_n_add_n_invert, -1) in
@@ -272,7 +274,7 @@ end
             @test kurt[k] == quant[k]
         end
     end
-
+        
     function check_skewness_kurtosis(func, gd)
         applied = apply(func, gd)
         df_temp = DataFrame(applied[:transformed_gdf])
@@ -296,9 +298,9 @@ end
         df_temp = DataFrame(applied[:transformed_gdf])
         for pos in (1, 5)
             if pos == 5
-                quant = applied[:skewness_and_kurtosis][2]
+            quant = applied[:skewness_and_kurtosis][2]
             else
-                quant = applied[:skewness_and_kurtosis][1]
+            quant = applied[:skewness_and_kurtosis][1]
             end
             skew = skewness(df_temp[pos:(pos + 3), 2])
             kurt = kurtosis(df_temp[pos:(pos + 3), 2])
@@ -322,7 +324,7 @@ end
     check_skewness_kurtosis(Normalize.cube, gd)
     check_skewness_kurtosis(Normalize.reflect_n_invert, gd, 8)
 end
-    
+
 @testset "record transformations" begin
     df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13])
     function check_record(df::AbstractDataFrame, func; normal_ratio=2)
@@ -362,12 +364,12 @@ end
 
         for df in record1["normal gdf"]
             @test df isa AbstractDataFrame
-        end
+            end
         @test isempty(record1["nonnormal gdf"])
-    end
+        end
 
     function check_records(df::AbstractDataFrame, transform_series; normal_ratio=2)
-    check_record(df, transform_series["one arg"]; normal_ratio)
+        check_record(df, transform_series["one arg"]; normal_ratio)
         check_record(df, transform_series["two args"]...; normal_ratio)
     end
 
@@ -406,7 +408,7 @@ end
             @test haskey(nt1, :kurtosis_error)
             @test haskey(nt1, :kurtosis_ratio)
         end
-        
+
         for gd in record1["normal gdf"]
             @test gd isa GroupedDataFrame
         end
@@ -423,7 +425,7 @@ end
     functions = Dict(
         "one arg" => Normalize.square,
         "two args" => (Normalize.add_n_invert, -0.5),
-            )
+    )
     check_records(df, functions, normal_ratio=3)
 
     df2 = DataFrame(group=[1,1,1,1,2,2,2,2], a=1:8)
@@ -435,4 +437,4 @@ end
         "two args" => (Normalize.reflect_n_square_root, 8),
     )
     check_records(gd, functions)
-end            
+end

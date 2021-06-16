@@ -1,8 +1,8 @@
 # Normalize
 
 [![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
-[![Build Status](https://travis-ci.com/quanteconuser/Normalize.jl.svg?branch=master)](https://travis-ci.com/quanteconuser/Normalize.jl)
-[![Coverage](https://codecov.io/gh/quanteconuser/Normalize.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/quanteconuser/Normalize.jl)
+[![Build Status](https://travis-ci.com/muhadamanhuri/Normalize.jl.svg?branch=master)](https://travis-ci.com/muhadamanhuri/Normalize.jl)
+[![Coverage](https://codecov.io/gh/muhadamanhuri/Normalize.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/muhadamanhuri/Normalize.jl)
 
 This tool provides the skewness and kurtosis details of a dataset, and if the dataset is nonnormal within a desired range (default ±2), separate transformations are applied to attempt once to normalize it.
 
@@ -148,7 +148,6 @@ Kurtosis Ratio: 1.448
 
 ## Todos
 
-- Docstring examples
 - Normalize iteratively on subsequent transformations
 - Optimize performance
 - Overflow warning
