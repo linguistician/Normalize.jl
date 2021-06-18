@@ -1,5 +1,3 @@
-codecov: true
-
 language: julia
 
 os:
@@ -10,15 +8,10 @@ os:
 julia:
   - 1.5
   - 1.6
-  - nightly
 
 notifications:
   email:
     - mredamanhuri@gmail.com
-
-matrix:
-  allow_failures:
-    - julia: nightly
 
 script:
   - julia --project --check-bounds=yes -e 'import Pkg; Pkg.build(; verbose = true); Pkg.test("Normalize"; coverage=true)'
