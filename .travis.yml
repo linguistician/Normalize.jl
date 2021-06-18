@@ -1,3 +1,5 @@
+codecov: true
+
 language: julia
 
 os:
@@ -11,14 +13,15 @@ julia:
   - nightly
 
 notifications:
-  email: false
+  email:
+    - mredamanhuri@gmail.com
 
 matrix:
   allow_failures:
     - julia: nightly
 
 script:
-  - julia --project -e 'import Pkg; Pkg.build(; verbose = true); Pkg.test(coverage=true)'
+  - julia --project --check-bounds=yes -e 'import Pkg; Pkg.build(; verbose = true); Pkg.test("Normalize"; coverage=true)'
 
 after_success:
 - julia --project -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
