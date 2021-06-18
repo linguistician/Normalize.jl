@@ -1,9 +1,10 @@
 language: julia
 
 os:
-  - linux
   - osx
   - windows
+
+dist: focal
 
 julia:
   - 1.5
