@@ -1,23 +1,23 @@
 using DataFrames, Normalize, Test
 
 @testset "convert tabular data to dataframe" begin
-    function test_dir()
-        path = pwd()
-        if endswith(path, "test")
-            return view(path, 1:findfirst("test", path)[end])
-        else
-            return "$(path)/test"
-        end
-    end
+    # function test_dir()
+    #     path = pwd()
+    #     if endswith(path, "test")
+    #         return view(path, 1:findfirst("test", path)[end])
+    #     else
+    #         return "$(path)/test"
+    #     end
+    # end
 
     example = DataFrame(a=[1, 2, 3, 4, 5], b=[6, 7, 8, 9, 10])
-    @test tabular_to_dataframe("$(test_dir())/dummy/test.csv") == example
-    @test tabular_to_dataframe("$(test_dir())/dummy/test.xlsx", "test") == example
-    @test tabular_to_dataframe("$(test_dir())/dummy/test.xls", "test") == example
-    @test tabular_to_dataframe("$(test_dir())/dummy/test.ods", "test") == example
-    @test tabular_to_dataframe("$(test_dir())/dummy/test.sav") == example
-    @test tabular_to_dataframe("$(test_dir())/dummy/co3.dta") isa DataFrame && 
-        tabular_to_dataframe("$(test_dir())/dummy/co3.dta") != DataFrame()
+    @test tabular_to_dataframe("dummy/test.csv") == example
+    @test tabular_to_dataframe("dummy/test.xlsx", "test") == example
+    @test tabular_to_dataframe("dummy/test.xls", "test") == example
+    @test tabular_to_dataframe("dummy/test.ods", "test") == example
+    @test tabular_to_dataframe("dummy/test.sav") == example
+    @test tabular_to_dataframe("dummy/co3.dta") isa DataFrame && 
+        tabular_to_dataframe("dummy/co3.dta") != DataFrame()
     @test tabular_to_dataframe("fake.doc") == DataFrame()
 end
 
@@ -154,7 +154,7 @@ end
         (skewness_ratio = 0.98, kurtosis_ratio = 1.2,),
     ]
     @test are_normal(nt2) == false
-end
+    end
 
 @testset "get skew transformations" begin
     df = DataFrame(a=[-1, 1])
@@ -271,7 +271,7 @@ end
         quant = applied[:skewness_and_kurtosis][1]
         for s in keys(skew), k in keys(kurt)
             @test skew[s] == quant[s]
-            @test kurt[k] == quant[k]
+        @test kurt[k] == quant[k]
         end
     end
         
