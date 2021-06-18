@@ -85,6 +85,7 @@ Kurtosis Statistic: 4.364
 Kurtosis Std. Error: 2.0
 Kurtosis Ratio: 2.182
 
+
 julia> results = normalize(df); print_findings(results)
 APPLIED: cube
 --------
@@ -144,6 +145,8 @@ Skewness Ratio: 1.716
 Kurtosis Statistic: 2.896
 Kurtosis Std. Error: 2.0
 Kurtosis Ratio: 1.448
+
+
 ```
 
 ## Todos

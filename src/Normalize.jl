@@ -1986,6 +1986,7 @@ Kurtosis Statistic: 1.859
 Kurtosis Std. Error: 2.619
 Kurtosis Ratio: 0.71
 
+
 ```
 """
 function print_skewness_kurtosis(df::AbstractDataFrame; dependent::Bool=false)
@@ -2086,9 +2087,7 @@ Print the normal skewness and kurtosis in a dictionary `findings`.
 ```jldoctest
 julia> df = DataFrame(a=[-0.5, 2.47, 2.54, 2.91, 3.13]);
 
-julia> results = normalize(df);
-
-julia> print_findings(results)
+julia> print_findings(normalize(df))
 APPLIED: cube
 --------
 Variable: a
@@ -2147,6 +2146,7 @@ Skewness Ratio: 1.716
 Kurtosis Statistic: 2.896
 Kurtosis Std. Error: 2.0
 Kurtosis Ratio: 1.448
+
 
 
 ```
