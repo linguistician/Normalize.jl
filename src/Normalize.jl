@@ -7,6 +7,7 @@ using ExcelFiles
 using OdsIO
 using SciPy
 using StatFiles
+using XLSX
 
 export apply, normalize, record, record_all
 export are_negative_skews, are_positive_skews, is_negative_skew, is_positive_skew
@@ -1774,17 +1775,16 @@ Load tabular data from a string `path`, and converts it to a data frame.
 
 Acceptable file extensions are .csv, .dta, .ods, .sav, .xls, and .xlsx. If `path` ends in
 .ods, .xls, or .xlsx, the worksheet that is named `sheet` is converted.
-
-!!! compat "Julia 1.2"
-    `tabular_to_dataframe` uses `Regex` in `endswith`, which requires at least Julia 1.2.
 """
 function tabular_to_dataframe(path, sheet::AbstractString="")
     if endswith(path, ".csv")
         return CSV.read(path, DataFrame)
-    elseif endswith(path, r"\.xls.?")
-        return DataFrame(load(path, sheet))
+    elseif endswith(path, ".xlsx")
+        return DataFrame(XLSX.readtable(path, sheet)...)
     elseif endswith(path, ".sav") || endswith(path, ".dta")
         return DataFrame(load(path))
+    elseif endswith(path, ".xls")
+        return DataFrame(load(path, sheet))
     elseif endswith(path, ".ods")
         return ods_read(path; sheetName=sheet, retType="DataFrame")
     else

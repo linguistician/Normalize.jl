@@ -1,15 +1,6 @@
 using DataFrames, Normalize, Test
 
 @testset "convert tabular data to dataframe" begin
-    # function test_dir()
-    #     path = pwd()
-    #     if endswith(path, "test")
-    #         return view(path, 1:findfirst("test", path)[end])
-    #     else
-    #         return "$(path)/test"
-    #     end
-    # end
-
     example = DataFrame(a=[1, 2, 3, 4, 5], b=[6, 7, 8, 9, 10])
     @test tabular_to_dataframe("dummy/test.csv") == example
     @test tabular_to_dataframe("dummy/test.xlsx", "test") == example
@@ -355,7 +346,7 @@ end
         for nt1 in normal_vars[func_name]
             @test nt1[:name] == "a"
             @test haskey(nt1, :skewness_stat)
-            @test haskey(nt1, :skewness_error)
+        @test haskey(nt1, :skewness_error)
             @test haskey(nt1, :skewness_ratio)
             @test haskey(nt1, :kurtosis_stat)
             @test haskey(nt1, :kurtosis_error)
