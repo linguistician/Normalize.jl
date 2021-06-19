@@ -16,6 +16,8 @@ notifications:
     - mredamanhuri@gmail.com
 
 script:
+  - julia --project -e 'ENV["PYTHON"]=""; import Pkg; Pkg.build("PyCall");'
+  - julia --project -e 'using Conda; Conda.add("xlrd");'
   - julia --project --check-bounds=yes -e 'import Pkg; Pkg.build(; verbose = true); Pkg.test("Normalize"; coverage=true)'
 
 after_success:
