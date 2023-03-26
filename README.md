@@ -15,7 +15,7 @@ Skewness and kurtosis details are listed as their statistic, standard error, and
 Download the project through Code, or through [Git](https://git-scm.com/downloads) in the command line:
 
 ```
-$ git clone https://github.com/muhadamanhuri/Normalize.jl.git
+$ git clone https://github.com/linguistician/Normalize.jl.git
 ```
 
 Open [`julia`](https://julialang.org/downloads/), or run in the [command line](https://julialang.org/downloads/platform/). Change the working directory to the project path:
@@ -57,7 +57,7 @@ To download only the module, add it in `julia`. It is recommended to create a pr
 ```
 julia> import Pkg; Pkg.activate("<project name>")
 
-julia> Pkg.add(url="https://github.com/muhadamanhuri/Normalize.jl")
+julia> Pkg.add(url="https://github.com/linguistician/Normalize.jl")
 
 julia> using Normalize
 ```
